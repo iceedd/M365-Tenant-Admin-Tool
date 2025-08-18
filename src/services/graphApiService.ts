@@ -211,6 +211,32 @@ export class GraphApiService {
     }
   }
 
+  /**
+   * Get group members
+   */
+  async getGroupMembers(groupId: string): Promise<User[]> {
+    try {
+      const client = await this.initializeGraphClient(graphScopes.groups);
+      const response = await client.api(`/groups/${groupId}/members`).get();
+      return response.value || [];
+    } catch (error) {
+      this.handleGraphError(error);
+    }
+  }
+
+  /**
+   * Get group owners
+   */
+  async getGroupOwners(groupId: string): Promise<User[]> {
+    try {
+      const client = await this.initializeGraphClient(graphScopes.groups);
+      const response = await client.api(`/groups/${groupId}/owners`).get();
+      return response.value || [];
+    } catch (error) {
+      this.handleGraphError(error);
+    }
+  }
+
   // ====== LICENSING ======
 
   /**

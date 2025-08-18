@@ -42,6 +42,7 @@ export const msalConfig: Configuration = {
 // Microsoft Graph API scopes
 export const loginRequest = {
   scopes: (import.meta.env.VITE_AZURE_SCOPES || 'User.Read').split(' '),
+  prompt: 'select_account', // Force account selection
 };
 
 // Additional scopes for specific operations

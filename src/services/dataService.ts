@@ -13,19 +13,25 @@ export class DataService {
     try {
       this.authService = createBrowserAuthService();
       this.useRealApi = true;
+      console.log('🔄 DataService: Authentication service initialized successfully');
     } catch (error) {
-      console.warn('Graph API not available, using mock data:', error);
+      console.warn('⚠️ DataService: Graph API not available, using mock data:', error);
       this.useRealApi = false;
     }
   }
 
   private async checkAuthentication(): Promise<boolean> {
-    if (!this.authService) return false;
+    if (!this.authService) {
+      console.log('❌ DataService: No auth service available');
+      return false;
+    }
     
     try {
-      return await this.authService.isAuthenticated();
+      const isAuth = await this.authService.isAuthenticated();
+      console.log(`🔐 DataService: Authentication check result: ${isAuth}`);
+      return isAuth;
     } catch (error) {
-      console.error('Authentication check failed:', error);
+      console.error('❌ DataService: Authentication check failed:', error);
       return false;
     }
   }
@@ -33,18 +39,24 @@ export class DataService {
   // ====== USER MANAGEMENT ======
 
   async getUsers(): Promise<User[]> {
+    console.log(`📊 DataService.getUsers: useRealApi=${this.useRealApi}`);
+    
     if (this.useRealApi && await this.checkAuthentication()) {
       try {
+        console.log('🔄 DataService.getUsers: Fetching real users from Graph API...');
         const graphService = this.authService!.getGraphService();
-        return await graphService.getUsers([
+        const users = await graphService.getUsers([
           'id', 'displayName', 'userPrincipalName', 'mail', 
           'jobTitle', 'department', 'officeLocation', 'assignedLicenses'
         ]);
+        console.log(`✅ DataService.getUsers: Successfully fetched ${users.length} real users`);
+        return users;
       } catch (error) {
-        console.error('Failed to fetch real users, falling back to mock data:', error);
+        console.error('❌ DataService.getUsers: Failed to fetch real users, falling back to mock data:', error);
       }
     }
 
+    console.log('🔄 DataService.getUsers: Using mock data fallback');
     // Mock data fallback
     return [
       {
@@ -208,6 +220,63 @@ export class DataService {
       mailEnabled: groupData.groupType !== 'Security',
       securityEnabled: groupData.groupType === 'Security' || groupData.groupType === 'Microsoft365'
     } as Group;
+  }
+
+  async getGroupMembers(groupId: string): Promise<User[]> {
+    if (this.useRealApi && await this.checkAuthentication()) {
+      try {
+        const graphService = this.authService!.getGraphService();
+        return await graphService.getGroupMembers(groupId);
+      } catch (error) {
+        console.error('Failed to fetch real group members, falling back to mock data:', error);
+      }
+    }
+
+    // Mock data fallback
+    return [
+      {
+        id: '1',
+        displayName: 'John Doe',
+        userPrincipalName: 'john.doe@contoso.com',
+        mail: 'john.doe@contoso.com',
+        jobTitle: 'Software Engineer',
+        department: 'Engineering',
+        accountEnabled: true
+      },
+      {
+        id: '2', 
+        displayName: 'Jane Smith',
+        userPrincipalName: 'jane.smith@contoso.com',
+        mail: 'jane.smith@contoso.com',
+        jobTitle: 'Product Manager',
+        department: 'Product',
+        accountEnabled: true
+      }
+    ] as User[];
+  }
+
+  async getGroupOwners(groupId: string): Promise<User[]> {
+    if (this.useRealApi && await this.checkAuthentication()) {
+      try {
+        const graphService = this.authService!.getGraphService();
+        return await graphService.getGroupOwners(groupId);
+      } catch (error) {
+        console.error('Failed to fetch real group owners, falling back to mock data:', error);
+      }
+    }
+
+    // Mock data fallback
+    return [
+      {
+        id: '2',
+        displayName: 'Jane Smith',
+        userPrincipalName: 'jane.smith@contoso.com',
+        mail: 'jane.smith@contoso.com',
+        jobTitle: 'Product Manager',
+        department: 'Product',
+        accountEnabled: true
+      }
+    ] as User[];
   }
 
   // ====== LICENSE MANAGEMENT ======

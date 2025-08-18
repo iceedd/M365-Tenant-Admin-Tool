@@ -9,13 +9,13 @@ import { getTheme } from './utils/theme';
 import { createBrowserAuthService, AuthUser } from './services/authServiceBrowser';
 import { validateAzureConfig } from './config/azureConfig';
 import EnhancedLayout from './components/layout/EnhancedLayout';
-import EnhancedDashboard from './pages/EnhancedDashboard';
-import EnhancedUsers from './pages/EnhancedUsers';
-import TenantManagementSimple from './pages/TenantManagement-Simple';
+import EnhancedDashboardLive from './pages/EnhancedDashboard-Live';
+import EnhancedUsersLive from './pages/EnhancedUsers-Live';
+import TenantManagementLive from './pages/TenantManagement-Live';
 import BulkImportSimple from './pages/BulkImport-Simple';
 import LicenseManagementSimple from './pages/LicenseManagement-Simple';
-import GroupManagementSimple from './pages/GroupManagement-Simple';
-import ActivityManagementSimple from './pages/ActivityManagement-Simple';
+import GroupManagementLive from './pages/GroupManagement-Live';
+import ActivityManagementLive from './pages/ActivityManagement-Live';
 import ReportsManagementSimple from './pages/ReportsManagement-Simple';
 import SettingsManagementSimple from './pages/SettingsManagement-Simple';
 
@@ -81,11 +81,15 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       return;
     }
 
+    console.log('🔐 AUTH: Starting login process...');
     setIsLoading(true);
     setAuthError(null);
 
     try {
+      console.log('🔐 AUTH: Calling authService.loginPopup()...');
       const authResponse = await authService.loginPopup();
+      console.log('🔐 AUTH: Login successful, user:', authResponse.user);
+      
       setUser(authResponse.user);
       
       dispatch(loginSuccess({
@@ -97,8 +101,10 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         },
         token: authResponse.token
       }));
+      
+      console.log('🔐 AUTH: User state updated, login complete');
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error('🔐 AUTH: Login failed:', error);
       setAuthError(`Login failed: ${error}`);
       dispatch(loginFailure(error?.toString() || 'Unknown login error'));
     } finally {
@@ -212,13 +218,13 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     <Router>
       <EnhancedLayout onLogout={handleLogout}>
         <Routes>
-          <Route path="/dashboard" element={<EnhancedDashboard />} />
-          <Route path="/users" element={<EnhancedUsers />} />
-          <Route path="/groups" element={<GroupManagementSimple />} />
+          <Route path="/dashboard" element={<EnhancedDashboardLive />} />
+          <Route path="/users" element={<EnhancedUsersLive />} />
+          <Route path="/groups" element={<GroupManagementLive />} />
           <Route path="/licenses" element={<LicenseManagementSimple />} />
           <Route path="/bulk-import" element={<BulkImportSimple />} />
-          <Route path="/tenant" element={<TenantManagementSimple />} />
-          <Route path="/activity" element={<ActivityManagementSimple />} />
+          <Route path="/tenant" element={<TenantManagementLive />} />
+          <Route path="/activity" element={<ActivityManagementLive />} />
           <Route path="/reports" element={<ReportsManagementSimple />} />
           <Route path="/reports/*" element={<ReportsManagementSimple />} />
           <Route path="/settings" element={<SettingsManagementSimple />} />

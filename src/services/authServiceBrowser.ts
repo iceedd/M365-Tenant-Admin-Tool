@@ -39,19 +39,17 @@ export class BrowserAuthService {
     try {
       await this.msalInstance.initialize();
       
-      // Handle redirect promise
-      const response = await this.msalInstance.handleRedirectPromise();
-      if (response) {
-        console.log('Redirect authentication successful:', response.account?.username);
-      }
-      
-      // Set active account if available
+      // Set active account if available (don't handle redirect promise during initialization)
       const accounts = this.msalInstance.getAllAccounts();
       if (accounts.length > 0) {
         this.msalInstance.setActiveAccount(accounts[0]);
+        console.log('🔐 AuthService: Found existing account:', accounts[0].username);
+      } else {
+        console.log('🔐 AuthService: No existing accounts found');
       }
       
       this.initialized = true;
+      console.log('🔐 AuthService: MSAL initialized successfully');
     } catch (error) {
       console.error('MSAL initialization failed:', error);
       throw error;
@@ -69,15 +67,38 @@ export class BrowserAuthService {
    */
   async loginPopup(): Promise<AuthResponse> {
     try {
+      console.log('🔐 AuthService: Initializing MSAL...');
       await this.ensureInitialized();
       
-      const response: AuthenticationResult = await this.msalInstance.loginPopup(loginRequest);
+      // Clear any existing accounts to force fresh login
+      console.log('🔐 AuthService: Clearing existing authentication cache...');
+      const accounts = this.msalInstance.getAllAccounts();
+      for (const account of accounts) {
+        await this.msalInstance.logout({
+          account: account,
+          onRedirectNavigate: () => false // Prevent redirect
+        });
+      }
+      
+      console.log('🔐 AuthService: Opening login popup with account selection...');
+      
+      // Add timeout handling for popup
+      const popupPromise = this.msalInstance.loginPopup(loginRequest);
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Login popup timed out after 5 minutes')), 300000);
+      });
+      
+      const response: AuthenticationResult = await Promise.race([popupPromise, timeoutPromise]) as AuthenticationResult;
+      console.log('🔐 AuthService: Popup login successful, account:', response.account?.username);
       
       // Set active account
       this.msalInstance.setActiveAccount(response.account);
       
+      console.log('🔐 AuthService: Testing Graph API connection...');
       // Get user details from Graph API
       const connectionTest = await this.graphService.testConnection();
+      console.log('🔐 AuthService: Graph API test result:', connectionTest);
+      
       if (!connectionTest.success) {
         throw new Error(`Graph API connection failed: ${connectionTest.error}`);
       }
@@ -88,12 +109,13 @@ export class BrowserAuthService {
         isAuthenticated: true
       };
 
+      console.log('🔐 AuthService: Login completed successfully for user:', authUser.userPrincipalName);
       return {
         user: authUser,
         token: response.accessToken
       };
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error('🔐 AuthService: Login failed:', error);
       throw error;
     }
   }

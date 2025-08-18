@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   AppBar,
@@ -17,7 +17,11 @@ import {
   Divider,
   Tooltip,
   Alert,
-  useTheme
+  useTheme,
+  Menu as MuiMenu,
+  MenuItem,
+  Paper,
+  Popover
 } from '@mui/material';
 import {
   Dashboard,
@@ -34,7 +38,8 @@ import {
   SwapHoriz,
   PowerSettingsNew,
   CheckCircle,
-  Warning
+  Warning,
+  Close
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -75,54 +80,99 @@ const navigationItems = [
 
 interface EnhancedLayoutProps {
   children: React.ReactNode;
+  onLogout?: () => void;
 }
 
-const EnhancedLayout: React.FC<EnhancedLayoutProps> = ({ children }) => {
+const EnhancedLayout: React.FC<EnhancedLayoutProps> = ({ children, onLogout }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [tenantConnected, setTenantConnected] = useState(true); // Mock connection status
+  const [tenantConnected, setTenantConnected] = useState(true);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [notificationAnchor, setNotificationAnchor] = useState<HTMLElement | null>(null);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
+
+  // Mock notifications - in real app these would come from activity logs/audit data
+  useEffect(() => {
+    setNotifications([
+      {
+        id: 1,
+        message: 'New user created: john.doe@contoso.com',
+        timestamp: new Date(Date.now() - 1000 * 60 * 5), // 5 minutes ago
+        type: 'success'
+      },
+      {
+        id: 2,
+        message: 'License assigned to jane.smith@contoso.com',
+        timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 minutes ago  
+        type: 'info'
+      },
+      {
+        id: 3,
+        message: 'Group membership change in IT Department',
+        timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
+        type: 'warning'
+      }
+    ]);
+  }, []);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
   const handleSwitchTenant = () => {
-    // Mock tenant switching (like PowerShell Switch Tenant button)
-    console.log('Switching tenant...');
+    console.log('🔄 Switching to different tenant...');
     setTenantConnected(false);
-    setTimeout(() => {
-      setTenantConnected(true);
-      console.log('Connected to new tenant: Contoso Corporation');
-      // Could trigger re-authentication flow here
-    }, 2000);
+    
+    // Force a new login to switch tenants
+    if (onLogout) {
+      setTimeout(() => {
+        console.log('🔄 Triggering re-authentication for tenant switch...');
+        onLogout(); // This will clear current session and show login screen
+      }, 1500);
+    }
   };
 
   const handleDisconnect = () => {
-    console.log('Disconnecting from tenant and logging out...');
+    console.log('🔌 Disconnecting from tenant and logging out...');
     setTenantConnected(false);
-    // In real implementation, this would:
-    // 1. Clear authentication tokens
-    // 2. Clear user session
-    // 3. Redirect to login page
-    // 4. Clear any cached tenant data
-    setTimeout(() => {
-      alert('Disconnected successfully. In a real app, you would be redirected to login.');
-      // Could redirect to login page here
-      // navigate('/login');
-    }, 1000);
+    
+    // Actually perform logout
+    if (onLogout) {
+      setTimeout(() => {
+        console.log('🔌 Performing real logout...');
+        onLogout(); // This will clear authentication and show login screen
+      }, 1000);
+    } else {
+      setTimeout(() => {
+        alert('Disconnected successfully. You will be redirected to login.');
+        window.location.reload(); // Fallback if no logout handler
+      }, 1000);
+    }
   };
 
-  const handleNotificationClick = () => {
+  const handleNotificationClick = (event: React.MouseEvent<HTMLElement>) => {
+    console.log('🔔 Opening notifications panel...');
+    setNotificationAnchor(event.currentTarget);
     setNotificationOpen(!notificationOpen);
-    console.log('Notifications clicked - would show notification panel');
-    // In real implementation, this would show a dropdown/panel with:
-    // - Recent user creation activities  
-    // - License assignment notifications
-    // - Group membership changes
-    // - System alerts and warnings
+  };
+
+  const handleCloseNotifications = () => {
+    setNotificationAnchor(null);
+    setNotificationOpen(false);
+  };
+
+  const formatTimeAgo = (timestamp: Date) => {
+    const now = new Date();
+    const diffMs = now.getTime() - timestamp.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMins / 60);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${Math.floor(diffHours / 24)}d ago`;
   };
 
   const TenantStatusChip = () => (
@@ -283,7 +333,7 @@ const EnhancedLayout: React.FC<EnhancedLayoutProps> = ({ children }) => {
             </Box>
 
             {/* Notifications */}
-            <Tooltip title="View notifications (3 new)">
+            <Tooltip title={`View notifications (${notifications.length} new)`}>
               <IconButton 
                 color="inherit"
                 onClick={handleNotificationClick}
@@ -292,7 +342,7 @@ const EnhancedLayout: React.FC<EnhancedLayoutProps> = ({ children }) => {
                   '&:hover': { backgroundColor: 'action.hover' }
                 }}
               >
-                <Badge badgeContent={3} color="error">
+                <Badge badgeContent={notifications.length} color="error">
                   <Notifications />
                 </Badge>
               </IconButton>
@@ -308,6 +358,88 @@ const EnhancedLayout: React.FC<EnhancedLayoutProps> = ({ children }) => {
           </Box>
         </Toolbar>
       </AppBar>
+
+      {/* Notifications Popover */}
+      <Popover
+        open={notificationOpen}
+        anchorEl={notificationAnchor}
+        onClose={handleCloseNotifications}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+      >
+        <Paper sx={{ width: 350, maxHeight: 400 }}>
+          <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                Notifications
+              </Typography>
+              <IconButton size="small" onClick={handleCloseNotifications}>
+                <Close />
+              </IconButton>
+            </Box>
+          </Box>
+          <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
+            {notifications.length > 0 ? (
+              notifications.map((notification) => (
+                <Box
+                  key={notification.id}
+                  sx={{
+                    p: 2,
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    '&:last-child': { borderBottom: 'none' },
+                    '&:hover': { backgroundColor: 'action.hover' }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                    <Box sx={{ mt: 0.5 }}>
+                      {notification.type === 'success' && <CheckCircle sx={{ color: 'success.main', fontSize: 16 }} />}
+                      {notification.type === 'warning' && <Warning sx={{ color: 'warning.main', fontSize: 16 }} />}
+                      {notification.type === 'info' && <Notifications sx={{ color: 'info.main', fontSize: 16 }} />}
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
+                        {notification.message}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {formatTimeAgo(notification.timestamp)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              ))
+            ) : (
+              <Box sx={{ p: 3, textAlign: 'center' }}>
+                <Notifications sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+                <Typography variant="body2" color="text.secondary">
+                  No new notifications
+                </Typography>
+              </Box>
+            )}
+          </Box>
+          {notifications.length > 0 && (
+            <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Button
+                fullWidth
+                variant="text"
+                size="small"
+                onClick={() => {
+                  setNotifications([]);
+                  handleCloseNotifications();
+                }}
+              >
+                Clear All Notifications
+              </Button>
+            </Box>
+          )}
+        </Paper>
+      </Popover>
 
       {/* Sidebar Drawer */}
       <Box
