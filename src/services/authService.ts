@@ -1,7 +1,7 @@
 import { ConfidentialClientApplication, AuthenticationResult } from '@azure/msal-node';
-import { config } from '@/config';
-import { AuthUser } from '@/types';
-import logger, { logSecurityEvent, logError } from '@/utils/logger';
+import { config } from '../config/index';
+import { AuthUser } from '../types/index';
+import logger, { logSecurityEvent, logError } from '../utils/logger';
 import jwt from 'jsonwebtoken';
 
 /**
@@ -13,9 +13,9 @@ export class AuthService {
   constructor() {
     this.msalInstance = new ConfidentialClientApplication({
       auth: {
-        clientId: config.azure.clientId,
-        clientSecret: config.azure.clientSecret,
-        authority: `https://login.microsoftonline.com/${config.azure.tenantId}`
+        clientId: config.azureAd.clientId,
+        clientSecret: config.azureAd.clientSecret,
+        authority: 'https://login.microsoftonline.com/organizations'
       },
       system: {
         loggerOptions: {
@@ -47,14 +47,14 @@ export class AuthService {
   /**
    * Get authorization URL for OAuth flow
    */
-  getAuthUrl(state?: string): string {
+  async getAuthUrl(state?: string): Promise<string> {
     const authUrlParameters = {
-      scopes: config.graph.scopes,
-      redirectUri: config.azure.redirectUri,
+      scopes: config.graphApi.scopes,
+      redirectUri: config.azureAd.redirectUri,
       state: state || this.generateState()
     };
 
-    return this.msalInstance.getAuthCodeUrl(authUrlParameters);
+    return await this.msalInstance.getAuthCodeUrl(authUrlParameters);
   }
 
   /**
@@ -68,8 +68,8 @@ export class AuthService {
     try {
       const tokenRequest = {
         code,
-        scopes: config.graph.scopes,
-        redirectUri: config.azure.redirectUri
+        scopes: config.graphApi.scopes,
+        redirectUri: config.azureAd.redirectUri
       };
 
       const response: AuthenticationResult = await this.msalInstance.acquireTokenByCode(tokenRequest);
@@ -111,7 +111,7 @@ export class AuthService {
     try {
       const silentRequest = {
         refreshToken,
-        scopes: config.graph.scopes
+        scopes: config.graphApi.scopes
       };
 
       const response: AuthenticationResult = await this.msalInstance.acquireTokenByRefreshToken(silentRequest);
@@ -153,7 +153,7 @@ export class AuthService {
       expiresOn: authUser.expiresOn
     };
 
-    return jwt.sign(payload, config.security.jwtSecret, {
+    return jwt.sign(payload, config.jwt.jwtSecret, {
       expiresIn: '1h',
       issuer: 'M365-UserProvisioning-Tool',
       subject: authUser.id
@@ -165,7 +165,7 @@ export class AuthService {
    */
   verifyJWT(token: string): any {
     try {
-      return jwt.verify(token, config.security.jwtSecret, {
+      return jwt.verify(token, config.jwt.jwtSecret, {
         issuer: 'M365-UserProvisioning-Tool'
       });
     } catch (error: any) {

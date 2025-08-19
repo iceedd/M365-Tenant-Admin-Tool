@@ -1,8 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
-import { AuthUser, AuthenticatedRequest } from '@/types';
-import AuthService from '@/services/authService';
-import GraphService from '@/services/graphService';
-import logger, { logSecurityEvent } from '@/utils/logger';
+import { AuthUser } from '../types/index';
+import AuthService from '../services/authService';
+import GraphService from '../services/graphService';
+import logger, { logSecurityEvent } from '../utils/logger';
+
+// Define the AuthenticatedRequest interface directly in this file
+export interface AuthenticatedRequest extends Request {
+  user?: AuthUser;
+  graphAccessToken?: string;
+}
 
 const authService = new AuthService();
 

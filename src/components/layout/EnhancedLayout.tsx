@@ -81,9 +81,13 @@ const navigationItems = [
 interface EnhancedLayoutProps {
   children: React.ReactNode;
   onLogout?: () => void;
+  user?: {
+    name?: string;
+    email?: string;
+  };
 }
 
-const EnhancedLayout: React.FC<EnhancedLayoutProps> = ({ children, onLogout }) => {
+const EnhancedLayout: React.FC<EnhancedLayoutProps> = ({ children, onLogout, user }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [tenantConnected, setTenantConnected] = useState(true);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -93,28 +97,24 @@ const EnhancedLayout: React.FC<EnhancedLayoutProps> = ({ children, onLogout }) =
   const navigate = useNavigate();
   const theme = useTheme();
 
-  // Mock notifications - in real app these would come from activity logs/audit data
+  // Initialize with empty notifications - will be populated from API
   useEffect(() => {
-    setNotifications([
-      {
-        id: 1,
-        message: 'New user created: john.doe@contoso.com',
-        timestamp: new Date(Date.now() - 1000 * 60 * 5), // 5 minutes ago
-        type: 'success'
-      },
-      {
-        id: 2,
-        message: 'License assigned to jane.smith@contoso.com',
-        timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 minutes ago  
-        type: 'info'
-      },
-      {
-        id: 3,
-        message: 'Group membership change in IT Department',
-        timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-        type: 'warning'
-      }
-    ]);
+    // In a real implementation, fetch notifications from the API
+    setNotifications([]);
+    
+    // Example of how to fetch notifications:
+    // async function fetchNotifications() {
+    //   try {
+    //     const response = await fetch('/api/notifications');
+    //     const data = await response.json();
+    //     if (data.success) {
+    //       setNotifications(data.data);
+    //     }
+    //   } catch (error) {
+    //     console.error('Failed to fetch notifications:', error);
+    //   }
+    // }
+    // fetchNotifications();
   }, []);
 
   const handleDrawerToggle = () => {
@@ -178,7 +178,7 @@ const EnhancedLayout: React.FC<EnhancedLayoutProps> = ({ children, onLogout }) =
   const TenantStatusChip = () => (
     <Chip
       icon={tenantConnected ? <CheckCircle /> : <Warning />}
-      label={tenantConnected ? 'Contoso Corporation' : 'Disconnected'}
+      label={tenantConnected ? 'Connected' : 'Disconnected'}
       color={tenantConnected ? 'success' : 'warning'}
       size="small"
       variant="outlined"
@@ -350,7 +350,7 @@ const EnhancedLayout: React.FC<EnhancedLayoutProps> = ({ children, onLogout }) =
 
             {/* Current User */}
             <Chip
-              label="admin@contoso.com"
+              label={user?.email || "Signed In"}
               color="primary"
               variant="outlined"
               size="small"

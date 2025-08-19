@@ -1,9 +1,9 @@
 import { Router, Response } from 'express';
-import GraphService from '@/services/graphService';
-import { authenticate, graphAuth } from '@/middleware/auth';
-import { asyncHandler } from '@/middleware/errorHandler';
-import { AuthenticatedRequest, License, ApiResponse } from '@/types';
-import { logUserAction } from '@/utils/logger';
+import GraphService from '../services/graphService';
+import { authenticate, graphAuth, AuthenticatedRequest } from '../middleware/auth';
+import { asyncHandler } from '../middleware/errorHandler';
+import { License, ApiResponse } from '../types/index';
+import { logUserAction } from '../utils/logger';
 
 const router = Router();
 

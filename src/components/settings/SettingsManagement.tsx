@@ -1,4 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  useGetUserPreferencesQuery,
+  useUpdateUserPreferencesMutation,
+  useGetTenantSettingsQuery,
+  useUpdateTenantSettingsMutation,
+  useGetSecurityOverviewQuery,
+  useGetAdminUsersQuery,
+  useAddAdminUserMutation,
+  useRemoveAdminUserMutation
+} from '../../store/api/settingsApi';
 import {
   Box,
   Card,
@@ -303,7 +313,52 @@ const SettingsManagement: React.FC = () => {
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(false);
   const [showAdminDialog, setShowAdminDialog] = useState(false);
-  const [adminUsers_, setAdminUsers] = useState(adminUsers);
+  const [adminUsers_, setAdminUsers] = useState<any[]>([]);
+  
+  // Fetch data using API
+  const { data: userPreferencesData, isLoading: isLoadingPreferences } = 
+    useGetUserPreferencesQuery(undefined, { refetchOnMountOrArgChange: true });
+  
+  const { data: tenantSettingsData, isLoading: isLoadingTenantSettings } = 
+    useGetTenantSettingsQuery(undefined, { refetchOnMountOrArgChange: true });
+  
+  const { data: securityOverviewData, isLoading: isLoadingSecurityOverview } = 
+    useGetSecurityOverviewQuery(undefined, { refetchOnMountOrArgChange: true });
+  
+  const { data: adminUsersData, isLoading: isLoadingAdminUsers } = 
+    useGetAdminUsersQuery(undefined, { refetchOnMountOrArgChange: true });
+  
+  // Mutations
+  const [updateUserPreferences, { isLoading: isUpdatingPreferences }] = 
+    useUpdateUserPreferencesMutation();
+  
+  const [updateTenantSettings, { isLoading: isUpdatingTenantSettings }] = 
+    useUpdateTenantSettingsMutation();
+  
+  const [addAdminUser, { isLoading: isAddingAdmin }] = 
+    useAddAdminUserMutation();
+  
+  const [removeAdminUser, { isLoading: isRemovingAdmin }] = 
+    useRemoveAdminUserMutation();
+  
+  // Initialize state from API data
+  useEffect(() => {
+    if (userPreferencesData) {
+      setUserPrefs(userPreferencesData);
+    }
+  }, [userPreferencesData]);
+  
+  useEffect(() => {
+    if (tenantSettingsData) {
+      setTenantSettings(tenantSettingsData);
+    }
+  }, [tenantSettingsData]);
+  
+  useEffect(() => {
+    if (adminUsersData) {
+      setAdminUsers(adminUsersData);
+    }
+  }, [adminUsersData]);
   const [newAdmin, setNewAdmin] = useState({
     displayName: '',
     userPrincipalName: '',
@@ -326,11 +381,14 @@ const SettingsManagement: React.FC = () => {
 
   const handleSaveSettings = async () => {
     try {
-      // Simulate API call to save settings
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Save both user preferences and tenant settings
+      await Promise.all([
+        updateUserPreferences(userPrefs).unwrap(),
+        updateTenantSettings(tenantSettings_).unwrap()
+      ]);
       
-      console.log('User Preferences:', userPrefs);
-      console.log('Tenant Settings:', tenantSettings_);
+      console.log('User Preferences saved:', userPrefs);
+      console.log('Tenant Settings saved:', tenantSettings_);
       
       setPendingChanges(false);
       setShowSaveSuccess(true);
@@ -370,18 +428,12 @@ const SettingsManagement: React.FC = () => {
         return;
       }
 
-      const newAdminUser: AdminUser = {
-        id: String(Date.now()),
+      // Call the API to add admin
+      const result = await addAdminUser({
         displayName: newAdmin.displayName,
         userPrincipalName: newAdmin.userPrincipalName,
-        roles: newAdmin.roles,
-        lastActive: new Date().toISOString(),
-        status: 'active',
-        permissions: newAdmin.roles.includes('Global Administrator') ? ['read', 'write', 'delete', 'admin'] : ['read', 'write']
-      };
-
-      setAdminUsers_(prev => [...prev, newAdminUser]);
-      setPendingChanges(true);
+        roles: newAdmin.roles
+      }).unwrap();
 
       // Reset form
       setNewAdmin({
@@ -391,16 +443,23 @@ const SettingsManagement: React.FC = () => {
       });
       setShowAdminDialog(false);
 
-      console.log('Administrator added successfully:', newAdminUser);
+      console.log('Administrator added successfully:', result.user);
     } catch (error) {
       console.error('Failed to add administrator:', error);
     }
   };
 
-  const handleRemoveAdmin = (adminId: string) => {
-    setAdminUsers_(prev => prev.filter(admin => admin.id !== adminId));
-    setPendingChanges(true);
-    console.log('Administrator removed:', adminId);
+  const handleRemoveAdmin = async (adminId: string) => {
+    try {
+      // Call the API to remove admin
+      await removeAdminUser(adminId).unwrap();
+      
+      // Update local state
+      setAdminUsers_(prev => prev.filter(admin => admin.id !== adminId));
+      console.log('Administrator removed:', adminId);
+    } catch (error) {
+      console.error('Failed to remove administrator:', error);
+    }
   };
 
   const renderUserPreferenceSetting = (pref: UserPreference) => {
@@ -634,31 +693,47 @@ const SettingsManagement: React.FC = () => {
                   <Shield sx={{ mr: 1 }} />
                   Security Overview
                 </Typography>
-                <List>
-                  <ListItem>
-                    <ListItemIcon><CheckCircle color="success" /></ListItemIcon>
-                    <ListItemText
-                      primary="Multi-Factor Authentication"
-                      secondary="94.2% compliance rate"
-                    />
-                  </ListItem>
-                  <Divider />
-                  <ListItem>
-                    <ListItemIcon><Warning color="warning" /></ListItemIcon>
-                    <ListItemText
-                      primary="Password Policy Compliance"
-                      secondary="87.5% of users have strong passwords"
-                    />
-                  </ListItem>
-                  <Divider />
-                  <ListItem>
-                    <ListItemIcon><Error color="error" /></ListItemIcon>
-                    <ListItemText
-                      primary="Guest User Reviews"
-                      secondary="22% of guest users need access review"
-                    />
-                  </ListItem>
-                </List>
+                {isLoadingSecurityOverview ? (
+                  <Box sx={{ p: 2, textAlign: 'center' }}>
+                    <Typography>Loading security data...</Typography>
+                  </Box>
+                ) : securityOverviewData ? (
+                  <List>
+                    <ListItem>
+                      <ListItemIcon>
+                        <CheckCircle color={securityOverviewData.multiFactorAuth.complianceRate > 90 ? "success" : "warning"} />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary="Multi-Factor Authentication"
+                        secondary={`${securityOverviewData.multiFactorAuth.complianceRate.toFixed(1)}% compliance rate (${securityOverviewData.multiFactorAuth.enabledCount}/${securityOverviewData.multiFactorAuth.totalCount} users)`}
+                      />
+                    </ListItem>
+                    <Divider />
+                    <ListItem>
+                      <ListItemIcon>
+                        <Warning color={securityOverviewData.passwordPolicy.complianceRate > 90 ? "success" : "warning"} />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary="Password Policy Compliance"
+                        secondary={`${securityOverviewData.passwordPolicy.complianceRate.toFixed(1)}% of users have strong passwords`}
+                      />
+                    </ListItem>
+                    <Divider />
+                    <ListItem>
+                      <ListItemIcon>
+                        <Error color={securityOverviewData.guestUsers.reviewRate < 10 ? "success" : "error"} />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary="Guest User Reviews"
+                        secondary={`${securityOverviewData.guestUsers.reviewRate.toFixed(1)}% of guest users need access review`}
+                      />
+                    </ListItem>
+                  </List>
+                ) : (
+                  <Alert severity="info">
+                    No security data available. Connect to a tenant to view security information.
+                  </Alert>
+                )}
               </CardContent>
             </Card>
           </Grid>
@@ -670,36 +745,50 @@ const SettingsManagement: React.FC = () => {
                   <Storage sx={{ mr: 1 }} />
                   System Information
                 </Typography>
-                <List>
-                  <ListItem>
-                    <ListItemText
-                      primary="Application Version"
-                      secondary="v2.1.0 (Latest)"
-                    />
-                    <ListItemSecondaryAction>
-                      <Chip label="UP TO DATE" size="small" color="success" />
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                  <Divider />
-                  <ListItem>
-                    <ListItemText
-                      primary="Database Version"
-                      secondary="PostgreSQL 14.2"
-                    />
-                  </ListItem>
-                  <Divider />
-                  <ListItem>
-                    <ListItemText
-                      primary="Last Backup"
-                      secondary="2025-08-17 02:00 UTC"
-                    />
-                    <ListItemSecondaryAction>
-                      <IconButton>
-                        <Backup />
-                      </IconButton>
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                </List>
+                {isLoadingSecurityOverview ? (
+                  <Box sx={{ p: 2, textAlign: 'center' }}>
+                    <Typography>Loading system information...</Typography>
+                  </Box>
+                ) : securityOverviewData?.systemInfo ? (
+                  <List>
+                    <ListItem>
+                      <ListItemText
+                        primary="Application Version"
+                        secondary={`${securityOverviewData.systemInfo.appVersion} ${securityOverviewData.systemInfo.isUpToDate ? '(Latest)' : '(Update Available)'}`}
+                      />
+                      <ListItemSecondaryAction>
+                        <Chip 
+                          label={securityOverviewData.systemInfo.isUpToDate ? "UP TO DATE" : "UPDATE AVAILABLE"} 
+                          size="small" 
+                          color={securityOverviewData.systemInfo.isUpToDate ? "success" : "warning"} 
+                        />
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                    <Divider />
+                    <ListItem>
+                      <ListItemText
+                        primary="Database Version"
+                        secondary={securityOverviewData.systemInfo.databaseVersion}
+                      />
+                    </ListItem>
+                    <Divider />
+                    <ListItem>
+                      <ListItemText
+                        primary="Last Backup"
+                        secondary={new Date(securityOverviewData.systemInfo.lastBackup).toLocaleString()}
+                      />
+                      <ListItemSecondaryAction>
+                        <IconButton>
+                          <Backup />
+                        </IconButton>
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                  </List>
+                ) : (
+                  <Alert severity="info">
+                    No system information available.
+                  </Alert>
+                )}
               </CardContent>
             </Card>
           </Grid>
@@ -711,9 +800,15 @@ const SettingsManagement: React.FC = () => {
                   <Schedule sx={{ mr: 1 }} />
                   Maintenance & Updates
                 </Typography>
+                {securityOverviewData?.systemInfo ? (
                 <Alert severity="info" sx={{ mb: 2 }}>
-                  System maintenance is scheduled for Sunday, August 20th at 02:00 UTC (approximately 2 hours).
+                  System maintenance is scheduled for {new Date(securityOverviewData.systemInfo.nextMaintenance).toLocaleString()} (approximately 2 hours).
                 </Alert>
+              ) : (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  No scheduled maintenance information available.
+                </Alert>
+              )}
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <Button variant="outlined" startIcon={<Download />}>
                     Download Logs
@@ -761,7 +856,15 @@ const SettingsManagement: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {adminUsers_.map((user) => (
+                  {isLoadingAdminUsers ? (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center">
+                        <Box sx={{ p: 2, textAlign: 'center' }}>
+                          <Typography>Loading administrators...</Typography>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ) : adminUsers_.length > 0 ? adminUsers_.map((user) => (
                     <TableRow key={user.id} hover>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -812,7 +915,17 @@ const SettingsManagement: React.FC = () => {
                         </IconButton>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center">
+                        <Box sx={{ p: 2 }}>
+                          <Alert severity="info">
+                            No administrators found. Add a new administrator to get started.
+                          </Alert>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>

@@ -1,10 +1,10 @@
 import { Router, Response } from 'express';
-import GraphService from '@/services/graphService';
-import { authenticate, authorize, graphAuth } from '@/middleware/auth';
-import { asyncHandler, validate } from '@/middleware/errorHandler';
-import { AuthenticatedRequest, Group, ApiResponse } from '@/types';
+import GraphService from '../services/graphService';
+import { authenticate, authorize, graphAuth, AuthenticatedRequest } from '../middleware/auth';
+import { asyncHandler, validate } from '../middleware/errorHandler';
+import { Group, ApiResponse } from '../types/index';
 import Joi from 'joi';
-import { logUserAction } from '@/utils/logger';
+import { logUserAction } from '../utils/logger';
 
 const router = Router();
 

@@ -3,8 +3,8 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
-import { config } from '@/config';
-import logger, { logSecurityEvent } from '@/utils/logger';
+import { config } from '../config/index';
+import logger, { logSecurityEvent } from '../utils/logger';
 
 /**
  * CORS configuration

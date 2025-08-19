@@ -1,4 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { 
+  useGetUsageMetricsQuery,
+  useGetLicenseReportsQuery, 
+  useGetUserActivityReportsQuery, 
+  useGetGroupMembershipReportsQuery,
+  useGetSecurityReportsQuery 
+} from '../../store/api/reportsApi';
 import {
   Box,
   Card,
@@ -112,48 +119,14 @@ interface SecurityReport {
   lastUpdated: string;
 }
 
-// Mock data for reports
-const usageMetrics: UsageMetric[] = [
-  { label: 'Total Users', value: 1247, change: 8.2, trend: 'up', period: 'vs last month' },
-  { label: 'Active Users (30d)', value: 1156, change: -2.1, trend: 'down', period: 'vs last month' },
-  { label: 'Licensed Users', value: 1089, change: 12.5, trend: 'up', period: 'vs last month' },
-  { label: 'Groups Created', value: 47, change: 15.3, trend: 'up', period: 'vs last month' },
-  { label: 'License Utilization', value: 87.2, change: 4.1, trend: 'up', period: 'percentage' },
-  { label: 'Security Incidents', value: 3, change: -25.0, trend: 'down', period: 'vs last month' }
-];
-
-const licenseReports: LicenseReport[] = [
-  { licenseName: 'Microsoft 365 E5', total: 200, assigned: 165, available: 35, utilization: 82.5, cost: 38.0, trend: 5.2 },
-  { licenseName: 'Microsoft 365 E3', total: 500, assigned: 445, available: 55, utilization: 89.0, cost: 22.0, trend: 8.1 },
-  { licenseName: 'Microsoft 365 Business Premium', total: 150, assigned: 127, available: 23, utilization: 84.7, cost: 15.0, trend: -2.3 },
-  { licenseName: 'Office 365 E3', total: 300, assigned: 267, available: 33, utilization: 89.0, cost: 20.0, trend: 3.8 },
-  { licenseName: 'Power BI Pro', total: 100, assigned: 78, available: 22, utilization: 78.0, cost: 10.0, trend: 12.7 }
-];
-
-const userActivityReports: UserActivityReport[] = [
-  { department: 'IT', totalUsers: 45, activeUsers: 43, inactiveUsers: 2, newUsers: 3, activityScore: 95.6 },
-  { department: 'Sales', totalUsers: 178, activeUsers: 165, inactiveUsers: 13, newUsers: 8, activityScore: 92.7 },
-  { department: 'Marketing', totalUsers: 67, activeUsers: 61, inactiveUsers: 6, newUsers: 4, activityScore: 91.0 },
-  { department: 'HR', totalUsers: 23, activeUsers: 22, inactiveUsers: 1, newUsers: 1, activityScore: 95.7 },
-  { department: 'Finance', totalUsers: 34, activeUsers: 31, inactiveUsers: 3, newUsers: 2, activityScore: 91.2 },
-  { department: 'Operations', totalUsers: 89, activeUsers: 82, inactiveUsers: 7, newUsers: 5, activityScore: 92.1 }
-];
-
-const groupMembershipReports: GroupMembershipReport[] = [
-  { groupName: 'All Employees', groupType: 'Distribution', memberCount: 1247, ownerCount: 3, lastModified: '2025-08-15', growthRate: 2.1 },
-  { groupName: 'IT Department', groupType: 'Security', memberCount: 45, ownerCount: 2, lastModified: '2025-08-16', growthRate: 6.7 },
-  { groupName: 'Sales Team', groupType: 'Microsoft365', memberCount: 178, ownerCount: 5, lastModified: '2025-08-14', growthRate: 4.5 },
-  { groupName: 'Project Alpha', groupType: 'Microsoft365', memberCount: 12, ownerCount: 2, lastModified: '2025-08-17', growthRate: 20.0 },
-  { groupName: 'Managers', groupType: 'Security', memberCount: 67, ownerCount: 1, lastModified: '2025-08-10', growthRate: 1.5 }
-];
-
-const securityReports: SecurityReport[] = [
-  { metric: 'Multi-Factor Authentication Coverage', value: 94.2, status: 'good', description: '94.2% of users have MFA enabled', lastUpdated: '2025-08-17' },
-  { metric: 'Guest User Access Reviews', value: 78.0, status: 'warning', description: '22% of guest users need access review', lastUpdated: '2025-08-15' },
-  { metric: 'Privileged Role Assignments', value: 12, status: 'good', description: '12 users with privileged roles', lastUpdated: '2025-08-16' },
-  { metric: 'Conditional Access Policies', value: 8, status: 'good', description: '8 active conditional access policies', lastUpdated: '2025-08-14' },
-  { metric: 'Risky Sign-ins (7 days)', value: 3, status: 'critical', description: '3 risky sign-in attempts detected', lastUpdated: '2025-08-17' }
-];
+// Initialize with empty data - will be populated from the API
+const initialReportData = {
+  usageMetrics: [] as UsageMetric[],
+  licenseReports: [] as LicenseReport[],
+  userActivityReports: [] as UserActivityReport[],
+  groupMembershipReports: [] as GroupMembershipReport[],
+  securityReports: [] as SecurityReport[]
+};
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -172,36 +145,95 @@ const ReportsManagement: React.FC = () => {
   const [dateRange, setDateRange] = useState('30days');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Report data state
+  const [reportData, setReportData] = useState(initialReportData);
+  
+  // Fetch report data on component mount and when date range changes
+  // Use RTK Query hooks to fetch data
+  const {
+    data: usageMetricsData = [],
+    isLoading: isLoadingUsage,
+    refetch: refetchUsage
+  } = useGetUsageMetricsQuery(dateRange, { refetchOnMountOrArgChange: true });
+  
+  const {
+    data: licenseReportsData = [],
+    isLoading: isLoadingLicense,
+    refetch: refetchLicense
+  } = useGetLicenseReportsQuery(dateRange, { refetchOnMountOrArgChange: true });
+  
+  const {
+    data: userActivityReportsData = [],
+    isLoading: isLoadingActivity,
+    refetch: refetchActivity
+  } = useGetUserActivityReportsQuery(dateRange, { refetchOnMountOrArgChange: true });
+  
+  const {
+    data: groupMembershipReportsData = [],
+    isLoading: isLoadingGroups,
+    refetch: refetchGroups
+  } = useGetGroupMembershipReportsQuery(dateRange, { refetchOnMountOrArgChange: true });
+  
+  const {
+    data: securityReportsData = [],
+    isLoading: isLoadingSecurity,
+    refetch: refetchSecurity
+  } = useGetSecurityReportsQuery(dateRange, { refetchOnMountOrArgChange: true });
+
+  // Update the reportData state when the API data changes
+  useEffect(() => {
+    setReportData({
+      usageMetrics: usageMetricsData || [],
+      licenseReports: licenseReportsData || [],
+      userActivityReports: userActivityReportsData || [],
+      groupMembershipReports: groupMembershipReportsData || [],
+      securityReports: securityReportsData || []
+    });
+    
+    // Set the refreshing state based on loading states
+    setIsRefreshing(
+      isLoadingUsage || 
+      isLoadingLicense || 
+      isLoadingActivity || 
+      isLoadingGroups || 
+      isLoadingSecurity
+    );
+  }, [
+    usageMetricsData, 
+    licenseReportsData, 
+    userActivityReportsData, 
+    groupMembershipReportsData, 
+    securityReportsData,
+    isLoadingUsage,
+    isLoadingLicense,
+    isLoadingActivity,
+    isLoadingGroups,
+    isLoadingSecurity
+  ]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Trigger all refetch functions
+      await Promise.all([
+        refetchUsage(),
+        refetchLicense(),
+        refetchActivity(),
+        refetchGroups(),
+        refetchSecurity()
+      ]);
       console.log(`Reports refreshed successfully for ${dateRange}`);
-    } finally {
-      setIsRefreshing(false);
+    } catch (error) {
+      console.error('Error refreshing reports:', error);
     }
   };
 
   const handleDateRangeChange = (newRange: string) => {
+    // Simply update the date range state
+    // The useEffect will trigger the data refresh
     setDateRange(newRange);
     console.log(`Time range changed to: ${newRange}`);
-    
-    // In a real implementation, this would trigger API calls to fetch data for the selected period
-    // For demo purposes, we'll simulate different data based on the range
-    
-    // This would typically call something like:
-    // fetchUsageMetrics(newRange);
-    // fetchLicenseReports(newRange);
-    // fetchUserActivityReports(newRange);
-    // etc.
-    
-    // Show visual feedback that data is changing
-    setIsRefreshing(true);
-    setTimeout(() => {
-      setIsRefreshing(false);
-      console.log(`Data updated for ${newRange} period`);
-    }, 800);
   };
 
   const handleExport = (format: string) => {
@@ -328,11 +360,19 @@ const ReportsManagement: React.FC = () => {
         />
       </Box>
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {usageMetrics.map((metric, index) => (
-          <Grid item xs={12} sm={6} md={4} lg={2} key={index}>
-            <MetricCard metric={metric} />
+        {reportData.usageMetrics.length > 0 ? (
+          reportData.usageMetrics.map((metric, index) => (
+            <Grid item xs={12} sm={6} md={4} lg={2} key={index}>
+              <MetricCard metric={metric} />
+            </Grid>
+          ))
+        ) : (
+          <Grid item xs={12}>
+            <Alert severity="info">
+              No usage metrics available. Connect to a tenant to view metrics.
+            </Alert>
           </Grid>
-        ))}
+        )}
       </Grid>
 
       {/* Reports Tabs */}
@@ -365,71 +405,81 @@ const ReportsManagement: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {licenseReports.map((license, index) => (
-                    <TableRow key={index} hover>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {license.licenseName}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">{license.total}</TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2" color="primary.main" fontWeight="medium">
-                          {license.assigned}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography 
-                          variant="body2" 
-                          color={license.available < 20 ? 'error.main' : 'success.main'}
-                          fontWeight="medium"
-                        >
-                          {license.available}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                          <LinearProgress
-                            variant="determinate"
-                            value={license.utilization}
-                            sx={{ 
-                              width: 60, 
-                              height: 8, 
-                              borderRadius: 4,
-                              backgroundColor: 'grey.200',
-                              '& .MuiLinearProgress-bar': {
-                                borderRadius: 4,
-                                backgroundColor: license.utilization > 90 ? 'error.main' : 
-                                               license.utilization > 75 ? 'warning.main' : 'success.main'
-                              }
-                            }}
-                          />
+                  {reportData.licenseReports.length > 0 ? (
+                    reportData.licenseReports.map((license, index) => (
+                      <TableRow key={index} hover>
+                        <TableCell>
                           <Typography variant="body2" fontWeight="medium">
-                            {license.utilization.toFixed(1)}%
+                            {license.licenseName}
                           </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2">
-                          ${(license.assigned * license.cost).toFixed(0)}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          (${license.cost}/user)
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
-                          {getTrendIcon('', license.trend)}
+                        </TableCell>
+                        <TableCell align="center">{license.total}</TableCell>
+                        <TableCell align="center">
+                          <Typography variant="body2" color="primary.main" fontWeight="medium">
+                            {license.assigned}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
                           <Typography 
                             variant="body2" 
-                            color={license.trend > 0 ? 'success.main' : license.trend < 0 ? 'error.main' : 'text.secondary'}
+                            color={license.available < 20 ? 'error.main' : 'success.main'}
+                            fontWeight="medium"
                           >
-                            {license.trend > 0 ? '+' : ''}{license.trend.toFixed(1)}%
+                            {license.available}
                           </Typography>
-                        </Box>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                            <LinearProgress
+                              variant="determinate"
+                              value={license.utilization}
+                              sx={{ 
+                                width: 60, 
+                                height: 8, 
+                                borderRadius: 4,
+                                backgroundColor: 'grey.200',
+                                '& .MuiLinearProgress-bar': {
+                                  borderRadius: 4,
+                                  backgroundColor: license.utilization > 90 ? 'error.main' : 
+                                                 license.utilization > 75 ? 'warning.main' : 'success.main'
+                                }
+                              }}
+                            />
+                            <Typography variant="body2" fontWeight="medium">
+                              {license.utilization.toFixed(1)}%
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography variant="body2">
+                            ${(license.assigned * license.cost).toFixed(0)}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            (${license.cost}/user)
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                            {getTrendIcon('', license.trend)}
+                            <Typography 
+                              variant="body2" 
+                              color={license.trend > 0 ? 'success.main' : license.trend < 0 ? 'error.main' : 'text.secondary'}
+                            >
+                              {license.trend > 0 ? '+' : ''}{license.trend.toFixed(1)}%
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center">
+                        <Alert severity="info" sx={{ my: 2 }}>
+                          No license data available. Connect to a tenant to view license information.
+                        </Alert>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -458,59 +508,69 @@ const ReportsManagement: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {userActivityReports.map((dept, index) => (
-                    <TableRow key={index} hover>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {dept.department}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">{dept.totalUsers}</TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2" color="success.main" fontWeight="medium">
-                          {dept.activeUsers}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography 
-                          variant="body2" 
-                          color={dept.inactiveUsers > 5 ? 'warning.main' : 'text.secondary'}
-                        >
-                          {dept.inactiveUsers}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip
-                          label={`+${dept.newUsers}`}
-                          size="small"
-                          color="info"
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                          <LinearProgress
-                            variant="determinate"
-                            value={dept.activityScore}
-                            sx={{ 
-                              width: 60, 
-                              height: 8, 
-                              borderRadius: 4,
-                              backgroundColor: 'grey.200',
-                              '& .MuiLinearProgress-bar': {
-                                borderRadius: 4,
-                                backgroundColor: dept.activityScore > 95 ? 'success.main' : 
-                                               dept.activityScore > 90 ? 'info.main' : 'warning.main'
-                              }
-                            }}
-                          />
+                  {reportData.userActivityReports.length > 0 ? (
+                    reportData.userActivityReports.map((dept, index) => (
+                      <TableRow key={index} hover>
+                        <TableCell>
                           <Typography variant="body2" fontWeight="medium">
-                            {dept.activityScore.toFixed(1)}%
+                            {dept.department}
                           </Typography>
-                        </Box>
+                        </TableCell>
+                        <TableCell align="center">{dept.totalUsers}</TableCell>
+                        <TableCell align="center">
+                          <Typography variant="body2" color="success.main" fontWeight="medium">
+                            {dept.activeUsers}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography 
+                            variant="body2" 
+                            color={dept.inactiveUsers > 5 ? 'warning.main' : 'text.secondary'}
+                          >
+                            {dept.inactiveUsers}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={`+${dept.newUsers}`}
+                            size="small"
+                            color="info"
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                            <LinearProgress
+                              variant="determinate"
+                              value={dept.activityScore}
+                              sx={{ 
+                                width: 60, 
+                                height: 8, 
+                                borderRadius: 4,
+                                backgroundColor: 'grey.200',
+                                '& .MuiLinearProgress-bar': {
+                                  borderRadius: 4,
+                                  backgroundColor: dept.activityScore > 95 ? 'success.main' : 
+                                                 dept.activityScore > 90 ? 'info.main' : 'warning.main'
+                                }
+                              }}
+                            />
+                            <Typography variant="body2" fontWeight="medium">
+                              {dept.activityScore.toFixed(1)}%
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center">
+                        <Alert severity="info" sx={{ my: 2 }}>
+                          No user activity data available. Connect to a tenant to view user activity information.
+                        </Alert>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -539,47 +599,57 @@ const ReportsManagement: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {groupMembershipReports.map((group, index) => (
-                    <TableRow key={index} hover>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {group.groupName}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={group.groupType}
-                          size="small"
-                          color={
-                            group.groupType === 'Security' ? 'error' :
-                            group.groupType === 'Microsoft365' ? 'primary' : 'secondary'
-                          }
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2" fontWeight="medium">
-                          {group.memberCount.toLocaleString()}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">{group.ownerCount}</TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2">
-                          {new Date(group.lastModified).toLocaleDateString()}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
-                          {getTrendIcon('', group.growthRate)}
-                          <Typography 
-                            variant="body2" 
-                            color={group.growthRate > 0 ? 'success.main' : group.growthRate < 0 ? 'error.main' : 'text.secondary'}
-                          >
-                            {group.growthRate > 0 ? '+' : ''}{group.growthRate.toFixed(1)}%
+                  {reportData.groupMembershipReports.length > 0 ? (
+                    reportData.groupMembershipReports.map((group, index) => (
+                      <TableRow key={index} hover>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            {group.groupName}
                           </Typography>
-                        </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={group.groupType}
+                            size="small"
+                            color={
+                              group.groupType === 'Security' ? 'error' :
+                              group.groupType === 'Microsoft365' ? 'primary' : 'secondary'
+                            }
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography variant="body2" fontWeight="medium">
+                            {group.memberCount.toLocaleString()}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">{group.ownerCount}</TableCell>
+                        <TableCell align="center">
+                          <Typography variant="body2">
+                            {new Date(group.lastModified).toLocaleDateString()}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                            {getTrendIcon('', group.growthRate)}
+                            <Typography 
+                              variant="body2" 
+                              color={group.growthRate > 0 ? 'success.main' : group.growthRate < 0 ? 'error.main' : 'text.secondary'}
+                            >
+                              {group.growthRate > 0 ? '+' : ''}{group.growthRate.toFixed(1)}%
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center">
+                        <Alert severity="info" sx={{ my: 2 }}>
+                          No group membership data available. Connect to a tenant to view group information.
+                        </Alert>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -596,46 +666,54 @@ const ReportsManagement: React.FC = () => {
               Security & Compliance Overview
             </Typography>
             <List>
-              {securityReports.map((report, index) => (
-                <React.Fragment key={index}>
-                  <ListItem>
-                    <ListItemIcon>
-                      {getStatusIcon(report.status)}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Typography variant="body1" fontWeight="medium">
-                            {report.metric}
-                          </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="h6" fontWeight="bold">
-                              {typeof report.value === 'number' && report.value < 100 ? 
-                                `${report.value}%` : report.value}
+              {reportData.securityReports.length > 0 ? (
+                reportData.securityReports.map((report, index) => (
+                  <React.Fragment key={index}>
+                    <ListItem>
+                      <ListItemIcon>
+                        {getStatusIcon(report.status)}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="body1" fontWeight="medium">
+                              {report.metric}
                             </Typography>
-                            <Chip
-                              label={report.status.toUpperCase()}
-                              size="small"
-                              color={getStatusColor(report.status) as any}
-                            />
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography variant="h6" fontWeight="bold">
+                                {typeof report.value === 'number' && report.value < 100 ? 
+                                  `${report.value}%` : report.value}
+                              </Typography>
+                              <Chip
+                                label={report.status.toUpperCase()}
+                                size="small"
+                                color={getStatusColor(report.status) as any}
+                              />
+                            </Box>
                           </Box>
-                        </Box>
-                      }
-                      secondary={
-                        <Box sx={{ mt: 0.5 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            {report.description}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            Last updated: {new Date(report.lastUpdated).toLocaleDateString()}
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                  {index < securityReports.length - 1 && <Divider />}
-                </React.Fragment>
-              ))}
+                        }
+                        secondary={
+                          <Box sx={{ mt: 0.5 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              {report.description}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Last updated: {new Date(report.lastUpdated).toLocaleDateString()}
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                    </ListItem>
+                    {index < reportData.securityReports.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))
+              ) : (
+                <Box sx={{ p: 3, textAlign: 'center' }}>
+                  <Alert severity="info">
+                    No security reports available. Connect to a tenant to view security information.
+                  </Alert>
+                </Box>
+              )}
             </List>
           </CardContent>
         </Card>

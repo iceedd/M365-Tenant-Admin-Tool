@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(mkdir:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(npm run start:backend-dev:*)",
+      "Bash(npx kill-port:*)",
+      "Bash(npm run dev:*)",
+      "Bash(curl:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

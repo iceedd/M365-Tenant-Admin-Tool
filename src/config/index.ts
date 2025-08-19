@@ -6,7 +6,6 @@ dotenv.config();
 
 const requiredEnvVars = [
   'AZURE_CLIENT_ID',
-  'AZURE_CLIENT_SECRET', 
   'AZURE_TENANT_ID',
   'JWT_SECRET',
   'SESSION_SECRET'
@@ -20,22 +19,22 @@ for (const envVar of requiredEnvVars) {
 }
 
 export const config: AppConfig = {
-  port: parseInt(process.env.PORT || '3000', 10),
+  port: parseInt(process.env.PORT || '3004', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   
-  azure: {
+  azureAd: {
     clientId: process.env.AZURE_CLIENT_ID!,
-    clientSecret: process.env.AZURE_CLIENT_SECRET!,
+    clientSecret: process.env.AZURE_CLIENT_SECRET || 'dummy-secret-for-local-dev',
     tenantId: process.env.AZURE_TENANT_ID!,
-    redirectUri: process.env.AZURE_REDIRECT_URI || 'http://localhost:3000/auth/callback'
+    redirectUri: process.env.AZURE_REDIRECT_URI || 'http://localhost:3004/auth/callback'
   },
   
-  graph: {
+  graphApi: {
     endpoint: process.env.GRAPH_API_ENDPOINT || 'https://graph.microsoft.com/v1.0',
     scopes: process.env.GRAPH_SCOPES?.split(',') || ['https://graph.microsoft.com/.default']
   },
   
-  security: {
+  jwt: {
     jwtSecret: process.env.JWT_SECRET!,
     sessionSecret: process.env.SESSION_SECRET!
   },
@@ -51,7 +50,7 @@ export const config: AppConfig = {
   },
   
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3001'
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3004'
   }
 };
 

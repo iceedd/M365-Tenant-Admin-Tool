@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
-import AuthService from '@/services/authService';
-import { asyncHandler, validate } from '@/middleware/errorHandler';
-import { authRateLimit } from '@/middleware/auth';
-import { ApiResponse } from '@/types';
+import AuthService from '../services/authService';
+import { asyncHandler, validate } from '../middleware/errorHandler';
+import { authRateLimit } from '../middleware/auth';
+import { ApiResponse } from '../types/index';
 import Joi from 'joi';
-import logger from '@/utils/logger';
+import logger from '../utils/logger';
 
 const router = Router();
 const authService = new AuthService();

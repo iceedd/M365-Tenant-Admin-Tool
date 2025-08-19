@@ -264,3 +264,34 @@ export interface BulkOperationResult {
   failed: number;
   errors: Array<{ userId: string; error: string }>;
 }
+
+// Configuration Types
+export interface AppConfig {
+  port: number;
+  nodeEnv: string;
+  azureAd: {
+    clientId: string;
+    clientSecret: string;
+    tenantId: string;
+    redirectUri: string;
+  };
+  graphApi: {
+    endpoint: string;
+    scopes: string[];
+  };
+  jwt: {
+    jwtSecret: string;
+    sessionSecret: string;
+  };
+  logging: {
+    level: string;
+    file: string;
+  };
+  rateLimit: {
+    windowMs: number;
+    maxRequests: number;
+  };
+  cors: {
+    origin: string | string[];
+  };
+}

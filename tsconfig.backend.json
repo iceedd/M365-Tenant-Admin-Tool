@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "outDir": "./dist-backend",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "types": ["node"],
+    "resolveJsonModule": true
+  },
+  "include": [
+    "src/server.ts",
+    "src/config/index.ts",
+    "src/middleware/**/*.ts",
+    "src/routes/**/*.ts",
+    "src/services/authService.ts",
+    "src/services/graphService.ts",
+    "src/types/**/*.ts",
+    "src/utils/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-backend",
+    "src/components",
+    "src/pages",
+    "src/store",
+    "src/hooks",
+    "src/config/azureConfig.ts",
+    "src/services/graphApiService.ts",
+    "src/utils/theme.ts"
+  ]
+}

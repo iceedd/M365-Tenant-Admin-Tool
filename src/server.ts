@@ -1,10 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
-import { config } from '@/config';
-import logger from '@/utils/logger';
-import routes from '@/routes';
-import { errorHandler, notFoundHandler } from '@/middleware/errorHandler';
+import { config } from './config/index';
+import logger from './utils/logger';
+import routes from './routes/index';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import {
   corsOptions,
   generalRateLimit,
@@ -13,7 +13,7 @@ import {
   requestLogger,
   securityHeaders,
   compressionMiddleware
-} from '@/middleware/security';
+} from './middleware/security';
 
 /**
  * Create and configure Express application

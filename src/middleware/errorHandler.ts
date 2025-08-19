@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { GraphError, ApiResponse } from '@/types';
-import logger, { logError } from '@/utils/logger';
-import { config } from '@/config';
+import { GraphError, ApiResponse } from '../types/index';
+import logger, { logError } from '../utils/logger';
+import { config } from '../config/index';
 
 /**
  * Custom error class for application errors

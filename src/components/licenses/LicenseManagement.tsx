@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useGetLicensesQuery, useGetLicenseUsageQuery, useGetLicenseDetailsQuery, useGetUsersWithLicenseQuery } from '../../store/api/licensesApi';
 import {
   Box,
   Card,
@@ -206,6 +207,46 @@ const LicenseManagement: React.FC = () => {
   const [showUserLicenses, setShowUserLicenses] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  
+  // Fetch licenses data
+  const { data: licensesData, error: licensesError, isLoading: isLoadingLicenses, refetch: refetchLicenses } = 
+    useGetLicensesQuery();
+    
+  // Fetch license usage data
+  const { data: licenseUsageData, isLoading: isLoadingUsage } = 
+    useGetLicenseUsageQuery();
+    
+  // Fetch license details when a license is selected
+  const { data: licenseDetailsData, isLoading: isLoadingDetails } = 
+    useGetLicenseDetailsQuery(selectedLicense?.skuId || '', { skip: !selectedLicense });
+    
+  // Convert API data to our component's expected format
+  const [licenses, setLicenses] = useState<License[]>([]);
+  
+  // Update licenses state when API data changes
+  useEffect(() => {
+    if (licensesData && licenseUsageData) {
+      // Combine license data with usage data
+      const combinedLicenses = licensesData.map(license => {
+        const usage = licenseUsageData.find(u => u.skuId === license.skuId);
+        return {
+          ...license,
+          percentage: usage?.percentage || 0,
+          warning: usage?.warningThreshold ? 1 : 0,
+          suspended: 0 // Not available in the API, using default
+        };
+      });
+      setLicenses(combinedLicenses);
+    } else if (licensesData) {
+      // If no usage data, use just license data
+      setLicenses(licensesData.map(license => ({
+        ...license,
+        percentage: license.consumed > 0 ? Math.round((license.consumed / license.total) * 100) : 0,
+        warning: 0,
+        suspended: 0
+      })));
+    }
+  }, [licensesData, licenseUsageData]);
 
   const getLicenseStatusColor = (percentage: number) => {
     if (percentage >= 90) return 'error';
@@ -219,7 +260,7 @@ const LicenseManagement: React.FC = () => {
     return <CheckCircle color="success" />;
   };
 
-  const totalLicenseCost = mockLicenses.reduce((sum, license) => 
+  const totalLicenseCost = licenses.reduce((sum, license) => 
     sum + (license.consumed * (license.costPerMonth || 0)), 0
   );
 
@@ -314,8 +355,10 @@ const LicenseManagement: React.FC = () => {
           <Button
             variant="contained"
             startIcon={<Refresh />}
+            onClick={() => refetchLicenses()}
+            disabled={isLoadingLicenses}
           >
-            Refresh Licenses
+            {isLoadingLicenses ? 'Refreshing...' : 'Refresh Licenses'}
           </Button>
         </Box>
       </Box>
@@ -355,16 +398,31 @@ const LicenseManagement: React.FC = () => {
 
       {/* License Cards */}
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
-        License Types ({mockLicenses.length})
+        License Types ({licenses.length})
       </Typography>
       
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {mockLicenses.map((license) => (
+      {isLoadingLicenses ? (
+        <Box sx={{ p: 4, textAlign: 'center' }}>
+          <Typography>Loading license data...</Typography>
+          <LinearProgress sx={{ mt: 2, mb: 4 }} />
+        </Box>
+      ) : licensesError ? (
+        <Alert severity="error" sx={{ mb: 4 }}>
+          Error loading license data. Please try again later.
+        </Alert>
+      ) : licenses.length === 0 ? (
+        <Alert severity="info" sx={{ mb: 4 }}>
+          No license data available. Please check your tenant configuration.
+        </Alert>
+      ) : (
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {licenses.map((license) => (
           <Grid item xs={12} sm={6} lg={4} xl={3} key={license.skuId}>
             <LicenseCard license={license} />
           </Grid>
-        ))}
-      </Grid>
+          ))}
+        </Grid>
+      )
 
       {/* License Summary Table */}
       <Card>
@@ -388,7 +446,16 @@ const LicenseManagement: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {mockLicenses.map((license) => (
+                {isLoadingLicenses ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center">
+                      <Box sx={{ p: 2 }}>
+                        <Typography variant="body2">Loading license data...</Typography>
+                        <LinearProgress sx={{ mt: 1 }} />
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ) : licenses.length > 0 ? licenses.map((license) => (
                   <TableRow key={license.skuId} hover>
                     <TableCell>
                       <Typography variant="body2" fontWeight="medium">
@@ -433,7 +500,15 @@ const LicenseManagement: React.FC = () => {
                       )}
                     </TableCell>
                   </TableRow>
-                ))}
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center">
+                      <Alert severity="info" sx={{ my: 2 }}>
+                        No license data available. Please check your tenant configuration.
+                      </Alert>
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </TableContainer>
@@ -565,7 +640,16 @@ const LicenseManagement: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {mockUserLicenses.map((user) => (
+                {isLoadingLicenses ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      <Box sx={{ p: 2 }}>
+                        <Typography variant="body2">Loading license data...</Typography>
+                        <LinearProgress sx={{ mt: 1 }} />
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ) : []/* TODO: Connect to real user licenses data */.map((user) => (
                   <TableRow key={user.userId}>
                     <TableCell>{user.displayName}</TableCell>
                     <TableCell>{user.userPrincipalName}</TableCell>
@@ -586,7 +670,15 @@ const LicenseManagement: React.FC = () => {
                       />
                     </TableCell>
                   </TableRow>
-                ))}
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      <Alert severity="info" sx={{ my: 2 }}>
+                        No user license data available. Please check your tenant configuration.
+                      </Alert>
+                    </TableCell>
+                  </TableRow>
+                )
               </TableBody>
             </Table>
           </TableContainer>

@@ -1,7 +1,7 @@
 import { Client } from '@microsoft/microsoft-graph-client';
 import { AuthenticationProvider } from '@microsoft/microsoft-graph-client';
-import { User, Group, License, GraphError } from '@/types';
-import logger, { logGraphApiCall, logError } from '@/utils/logger';
+import { User, Group, License, GraphError } from '../types/index';
+import logger, { logGraphApiCall, logError } from '../utils/logger';
 
 /**
  * Custom authentication provider for Microsoft Graph client
