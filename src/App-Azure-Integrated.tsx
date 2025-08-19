@@ -12,12 +12,12 @@ import EnhancedLayout from './components/layout/EnhancedLayout';
 import EnhancedDashboardLive from './pages/EnhancedDashboard-Live';
 import EnhancedUsersLive from './pages/EnhancedUsers-Live';
 import TenantManagementLive from './pages/TenantManagement-Live';
-import BulkImportSimple from './pages/BulkImport-Simple';
-import LicenseManagementSimple from './pages/LicenseManagement-Simple';
+import BulkImportLive from './pages/BulkImport-Live';
+import LicenseManagementLive from './pages/LicenseManagement-Live';
 import GroupManagementLive from './pages/GroupManagement-Live';
 import ActivityManagementLive from './pages/ActivityManagement-Live';
-import ReportsManagementSimple from './pages/ReportsManagement-Simple';
-import SettingsManagementSimple from './pages/SettingsManagement-Simple';
+import ReportsManagementLive from './pages/ReportsManagement-Live';
+import SettingsManagementLive from './pages/SettingsManagement-Live';
 
 // Configuration validation and setup
 const configValidation = validateAzureConfig();
@@ -221,14 +221,14 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <Route path="/dashboard" element={<EnhancedDashboardLive />} />
           <Route path="/users" element={<EnhancedUsersLive />} />
           <Route path="/groups" element={<GroupManagementLive />} />
-          <Route path="/licenses" element={<LicenseManagementSimple />} />
-          <Route path="/bulk-import" element={<BulkImportSimple />} />
+          <Route path="/licenses" element={<LicenseManagementLive />} />
+          <Route path="/bulk-import" element={<BulkImportLive />} />
           <Route path="/tenant" element={<TenantManagementLive />} />
           <Route path="/activity" element={<ActivityManagementLive />} />
-          <Route path="/reports" element={<ReportsManagementSimple />} />
-          <Route path="/reports/*" element={<ReportsManagementSimple />} />
-          <Route path="/settings" element={<SettingsManagementSimple />} />
-          <Route path="/settings/*" element={<SettingsManagementSimple />} />
+          <Route path="/reports" element={<ReportsManagementLive />} />
+          <Route path="/reports/*" element={<ReportsManagementLive />} />
+          <Route path="/settings" element={<SettingsManagementLive />} />
+          <Route path="/settings/*" element={<SettingsManagementLive />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

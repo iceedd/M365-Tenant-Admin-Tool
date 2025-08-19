@@ -38,17 +38,23 @@ export class DataService {
 
   // ====== USER MANAGEMENT ======
 
-  async getUsers(): Promise<User[]> {
+  async getUsers(): Promise<User[]>;
+  async getUsers(select: string[]): Promise<User[]>;
+  async getUsers(select?: string[]): Promise<User[]> {
     console.log(`📊 DataService.getUsers: useRealApi=${this.useRealApi}`);
     
     if (this.useRealApi && await this.checkAuthentication()) {
       try {
         console.log('🔄 DataService.getUsers: Fetching real users from Graph API...');
         const graphService = this.authService!.getGraphService();
-        const users = await graphService.getUsers([
+        
+        // Use provided select fields or default comprehensive set
+        const selectFields = select || [
           'id', 'displayName', 'userPrincipalName', 'mail', 
-          'jobTitle', 'department', 'officeLocation', 'assignedLicenses'
-        ]);
+          'jobTitle', 'department', 'officeLocation', 'assignedLicenses', 'accountEnabled', 'userType'
+        ];
+        
+        const users = await graphService.getUsers(selectFields);
         console.log(`✅ DataService.getUsers: Successfully fetched ${users.length} real users`);
         return users;
       } catch (error) {
@@ -154,12 +160,18 @@ export class DataService {
         const mailEnabled = groupData.groupType !== 'Security';
         const securityEnabled = groupData.groupType === 'Security' || groupData.groupType === 'Microsoft365';
         
+        // Generate a valid mail nickname (alphanumeric only, no spaces)
+        const mailNickname = groupData.displayName
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '')
+          .substring(0, 20) || 'group' + Date.now().toString().substring(-8);
+
         return await graphService.createGroup({
           displayName: groupData.displayName,
           description: groupData.description,
           groupTypes,
           mailEnabled,
-          mailNickname: groupData.displayName.toLowerCase().replace(/\s+/g, ''),
+          mailNickname,
           securityEnabled
         });
       } catch (error) {
@@ -294,6 +306,48 @@ export class DataService {
 
     // Mock assignment
     console.log('Mock license assignment:', { userId, skuId });
+  }
+
+  async removeLicense(userId: string, skuId: string): Promise<void> {
+    if (this.useRealApi && await this.checkAuthentication()) {
+      try {
+        const graphService = this.authService!.getGraphService();
+        await graphService.removeLicense(userId, skuId);
+        return;
+      } catch (error) {
+        console.error('Failed to remove real license:', error);
+        throw error;
+      }
+    }
+
+    // Mock removal
+    console.log('Mock license removal:', { userId, skuId });
+  }
+
+  // ====== DIRECTORY ROLES ======
+
+  async getAdministrativeUsers(): Promise<{ user: any; roles: string[] }[]> {
+    if (this.useRealApi && await this.checkAuthentication()) {
+      try {
+        console.log('🔄 DataService.getAdministrativeUsers: Fetching real admin users from Graph API...');
+        const graphService = this.authService!.getGraphService();
+        const adminUsers = await graphService.getAdministrativeUsers();
+        
+        // Transform to match the expected format
+        const transformedAdminUsers = adminUsers.map(item => ({
+          user: item.user,
+          roles: item.roles.map(role => role.displayName || 'Unknown Role')
+        }));
+        
+        console.log(`✅ DataService.getAdministrativeUsers: Successfully fetched ${transformedAdminUsers.length} admin users`);
+        return transformedAdminUsers;
+      } catch (error) {
+        console.error('❌ DataService.getAdministrativeUsers: Failed to fetch real admin users:', error);
+        throw new Error('Failed to fetch administrative users. Please ensure you have proper permissions.');
+      }
+    }
+
+    throw new Error('Authentication service not available. Please configure Azure AD integration.');
   }
 
   // ====== AUDIT LOGS ======

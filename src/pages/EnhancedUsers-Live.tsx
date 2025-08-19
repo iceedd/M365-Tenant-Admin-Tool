@@ -12,6 +12,7 @@ import {
 import { getDataService } from '../services/dataService';
 import type { User } from '@microsoft/microsoft-graph-types';
 import UserCreationForm from '../components/users/UserCreationForm';
+import BulkImportInterfaceLive from '../components/bulk/BulkImportInterface-Live';
 
 const EnhancedUsersLive: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
@@ -355,17 +356,7 @@ const EnhancedUsersLive: React.FC = () => {
       {activeTab === 0 && <UserCreationForm />}
       {activeTab === 1 && <UserListTab />}
       
-      {activeTab === 2 && (
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>Bulk Operations</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Perform bulk operations on multiple users at once.
-          </Typography>
-          <Alert severity="info">
-            Bulk operations feature coming soon. This will include CSV import, bulk updates, license assignment, and mass operations.
-          </Alert>
-        </Paper>
-      )}
+      {activeTab === 2 && <BulkImportInterfaceLive />}
 
       {/* Action Menu */}
       <Menu

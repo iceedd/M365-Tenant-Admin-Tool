@@ -127,25 +127,34 @@ const LicenseManagementLive: React.FC = () => {
     try {
       console.log(`🔄 Assigning license ${selectedLicense} to user ${selectedUser.displayName}...`);
       
-      // In a real implementation, this would call Graph API to assign the license
-      // For now, we'll simulate the assignment
-      const newAssignment: LicenseAssignment = {
-        userId: selectedUser.id || '',
-        userDisplayName: selectedUser.displayName || '',
-        userPrincipalName: selectedUser.userPrincipalName || '',
-        skuId: selectedLicense,
-        skuPartNumber: licenses.find(l => l.skuId === selectedLicense)?.skuPartNumber || '',
-        assignedDateTime: new Date().toISOString()
-      };
+      if (dataService.isUsingRealApi()) {
+        // Use real Graph API to assign the license
+        await dataService.assignLicense(selectedUser.id || '', selectedLicense);
+        console.log(`✅ License assigned successfully via Graph API`);
+        
+        // Refresh data to get the updated license assignments
+        await loadLicenseData();
+      } else {
+        // Simulate the assignment in demo mode
+        const newAssignment: LicenseAssignment = {
+          userId: selectedUser.id || '',
+          userDisplayName: selectedUser.displayName || '',
+          userPrincipalName: selectedUser.userPrincipalName || '',
+          skuId: selectedLicense,
+          skuPartNumber: licenses.find(l => l.skuId === selectedLicense)?.skuPartNumber || '',
+          assignedDateTime: new Date().toISOString()
+        };
 
-      setLicenseAssignments(prev => [...prev, newAssignment]);
+        setLicenseAssignments(prev => [...prev, newAssignment]);
+        console.log('✅ License assigned successfully (demo mode)');
+      }
+      
       setShowAssignDialog(false);
       setSelectedUser(null);
       setSelectedLicense('');
-
-      console.log('✅ License assigned successfully (simulated)');
     } catch (err) {
       console.error('❌ Failed to assign license:', err);
+      setError(`Failed to assign license: ${err}`);
     }
   };
 
@@ -153,14 +162,23 @@ const LicenseManagementLive: React.FC = () => {
     try {
       console.log(`🔄 Removing license ${assignment.skuPartNumber} from user ${assignment.userDisplayName}...`);
       
-      // In a real implementation, this would call Graph API to remove the license
-      setLicenseAssignments(prev => 
-        prev.filter(a => !(a.userId === assignment.userId && a.skuId === assignment.skuId))
-      );
-
-      console.log('✅ License removed successfully (simulated)');
+      if (dataService.isUsingRealApi()) {
+        // Use real Graph API to remove the license
+        await dataService.removeLicense(assignment.userId, assignment.skuId);
+        console.log(`✅ License removed successfully via Graph API`);
+        
+        // Refresh data to get the updated license assignments
+        await loadLicenseData();
+      } else {
+        // Simulate the removal in demo mode
+        setLicenseAssignments(prev => 
+          prev.filter(a => !(a.userId === assignment.userId && a.skuId === assignment.skuId))
+        );
+        console.log('✅ License removed successfully (demo mode)');
+      }
     } catch (err) {
       console.error('❌ Failed to remove license:', err);
+      setError(`Failed to remove license: ${err}`);
     }
   };
 

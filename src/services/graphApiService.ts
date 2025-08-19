@@ -1,7 +1,7 @@
 import { Client, GraphError } from '@microsoft/microsoft-graph-client';
 import { AuthenticationResult, PublicClientApplication } from '@azure/msal-browser';
 import { graphEndpoints, graphScopes } from '../config/azureConfig';
-import type { User, Group, Organization, SubscribedSku, DirectoryAudit } from '@microsoft/microsoft-graph-types';
+import type { User, Group, Organization, SubscribedSku, DirectoryAudit, DirectoryRole } from '@microsoft/microsoft-graph-types';
 
 export class GraphApiService {
   private graphClient: Client | null = null;
@@ -339,6 +339,77 @@ export class GraphApiService {
     } catch (error) {
       console.warn('Reports may not be available in all tenants:', error);
       return null;
+    }
+  }
+
+  // ====== DIRECTORY ROLES ======
+
+  /**
+   * Get all directory roles
+   */
+  async getDirectoryRoles(): Promise<DirectoryRole[]> {
+    try {
+      const client = await this.initializeGraphClient(graphScopes.directory);
+      const response = await client.api('/directoryRoles').get();
+      return response.value || [];
+    } catch (error) {
+      this.handleGraphError(error);
+    }
+  }
+
+  /**
+   * Get members of a specific directory role
+   */
+  async getDirectoryRoleMembers(roleId: string): Promise<User[]> {
+    try {
+      const client = await this.initializeGraphClient(graphScopes.directory);
+      const response = await client.api(`/directoryRoles/${roleId}/members`).get();
+      return response.value || [];
+    } catch (error) {
+      this.handleGraphError(error);
+    }
+  }
+
+  /**
+   * Get all users with administrative roles
+   */
+  async getAdministrativeUsers(): Promise<{ user: User; roles: DirectoryRole[] }[]> {
+    try {
+      const [roles, allUsers] = await Promise.all([
+        this.getDirectoryRoles(),
+        this.getUsers(['id', 'displayName', 'userPrincipalName', 'accountEnabled', 'signInActivity'])
+      ]);
+
+      // Filter to admin roles only
+      const adminRoles = roles.filter(role => 
+        role.displayName?.includes('Administrator') || 
+        role.displayName?.includes('Admin') ||
+        role.roleTemplateId === '62e90394-69f5-4237-9190-012177145e10' // Global Admin
+      );
+
+      // Get members for each admin role
+      const adminUsersMap = new Map<string, { user: User; roles: DirectoryRole[] }>();
+
+      for (const role of adminRoles) {
+        try {
+          const members = await this.getDirectoryRoleMembers(role.id!);
+          members.forEach(member => {
+            const existing = adminUsersMap.get(member.id!);
+            if (existing) {
+              existing.roles.push(role);
+            } else {
+              adminUsersMap.set(member.id!, { user: member, roles: [role] });
+            }
+          });
+        } catch (error) {
+          console.warn(`Failed to get members for role ${role.displayName}:`, error);
+        }
+      }
+
+      return Array.from(adminUsersMap.values());
+    } catch (error) {
+      console.error('Failed to get administrative users:', error);
+      this.handleGraphError(error);
     }
   }
 

@@ -130,6 +130,48 @@ const GroupManagementLive: React.FC = () => {
     }
   };
 
+  const handleCreateGroup = async (groupData: any) => {
+    try {
+      console.log('🔄 Creating group:', groupData);
+      setError(null);
+
+      // Map form data to the format expected by DataService
+      const createGroupData = {
+        displayName: groupData.displayName,
+        description: groupData.description,
+        groupType: groupData.groupType as 'Distribution' | 'Security' | 'Microsoft365'
+      };
+
+      // Call the real group creation API
+      const createdGroup = await dataService.createGroup(createGroupData);
+      console.log('✅ Group created successfully:', createdGroup);
+
+      // Close the dialog first
+      setShowCreateDialog(false);
+
+      // Refresh the groups list to show the new group
+      await loadGroups();
+
+      // Show success message
+      setShowRefreshSuccess(true);
+    } catch (error) {
+      console.error('❌ Failed to create group:', error);
+      
+      // Extract meaningful error message
+      let errorMessage = 'Unknown error occurred';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      setError(`Failed to create group: ${errorMessage}`);
+      
+      // Don't close the dialog on error so user can try again
+      throw error;
+    }
+  };
+
   useEffect(() => {
     loadGroups();
   }, []);
@@ -684,10 +726,7 @@ const GroupManagementLive: React.FC = () => {
       <GroupCreationForm
         open={showCreateDialog}
         onClose={() => setShowCreateDialog(false)}
-        onSubmit={(groupData) => {
-          console.log('Creating group:', groupData);
-          setShowCreateDialog(false);
-        }}
+        onSubmit={handleCreateGroup}
       />
 
       {/* Create Group FAB */}

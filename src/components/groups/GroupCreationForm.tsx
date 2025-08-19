@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -52,6 +52,8 @@ import {
 } from '@mui/icons-material';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import { getDataService } from '../../services/dataService';
+import type { User } from '@microsoft/microsoft-graph-types';
 
 interface GroupCreationFormProps {
   open: boolean;
@@ -59,14 +61,13 @@ interface GroupCreationFormProps {
   onSubmit: (groupData: any) => void;
 }
 
-// Mock data for dropdowns
-const mockUsers = [
-  { id: '1', displayName: 'John Smith', userPrincipalName: 'john.smith@contoso.com', department: 'IT' },
-  { id: '2', displayName: 'Sarah Wilson', userPrincipalName: 'sarah.wilson@contoso.com', department: 'IT' },
-  { id: '3', displayName: 'Mike Johnson', userPrincipalName: 'mike.johnson@contoso.com', department: 'Sales' },
-  { id: '4', displayName: 'Lisa Chen', userPrincipalName: 'lisa.chen@contoso.com', department: 'Product' },
-  { id: '5', displayName: 'David Brown', userPrincipalName: 'david.brown@contoso.com', department: 'HR' }
-];
+// Interface for user options in autocomplete
+interface UserOption {
+  id: string;
+  displayName: string;
+  userPrincipalName: string;
+  department?: string;
+}
 
 const classificationOptions = [
   { value: 'public', label: 'Public', description: 'Everyone can view this group' },
@@ -128,6 +129,48 @@ const steps = ['Basic Information', 'Settings & Permissions', 'Members & Owners'
 const GroupCreationForm: React.FC<GroupCreationFormProps> = ({ open, onClose, onSubmit }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState<UserOption[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [currentDomain, setCurrentDomain] = useState('contoso.com');
+  const [createError, setCreateError] = useState<string | null>(null);
+  
+  const dataService = getDataService();
+
+  // Load available users for autocomplete
+  useEffect(() => {
+    const loadUsers = async () => {
+      if (!open) return;
+      
+      setIsLoadingUsers(true);
+      try {
+        const users = await dataService.getUsers(['id', 'displayName', 'userPrincipalName', 'department']);
+        const userOptions: UserOption[] = users.map(user => ({
+          id: user.id || '',
+          displayName: user.displayName || '',
+          userPrincipalName: user.userPrincipalName || '',
+          department: user.department || undefined
+        }));
+        
+        setAvailableUsers(userOptions);
+        
+        // Extract domain from first user for email generation
+        if (userOptions.length > 0 && userOptions[0].userPrincipalName) {
+          const domain = userOptions[0].userPrincipalName.split('@')[1];
+          setCurrentDomain(domain);
+        }
+        
+        console.log(`Loaded ${userOptions.length} users for group creation`);
+      } catch (error) {
+        console.warn('Failed to load users for group creation:', error);
+        // Keep empty array if loading fails
+        setAvailableUsers([]);
+      } finally {
+        setIsLoadingUsers(false);
+      }
+    };
+
+    loadUsers();
+  }, [open, dataService]);
 
   const formik = useFormik({
     initialValues: {
@@ -150,13 +193,24 @@ const GroupCreationForm: React.FC<GroupCreationFormProps> = ({ open, onClose, on
     validationSchema,
     onSubmit: async (values) => {
       setIsCreating(true);
+      setCreateError(null);
       try {
-        // Simulate group creation
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        onSubmit(values);
+        // Call the parent's onSubmit handler (which will handle the real API call)
+        await onSubmit(values);
         handleClose();
       } catch (error) {
         console.error('Error creating group:', error);
+        
+        // Extract meaningful error message
+        let errorMessage = 'Unknown error occurred';
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        } else if (typeof error === 'string') {
+          errorMessage = error;
+        }
+        
+        setCreateError(errorMessage);
+        // Keep the dialog open if there's an error so user can see the issue
       } finally {
         setIsCreating(false);
       }
@@ -166,6 +220,7 @@ const GroupCreationForm: React.FC<GroupCreationFormProps> = ({ open, onClose, on
   const handleClose = () => {
     formik.resetForm();
     setActiveStep(0);
+    setCreateError(null);
     onClose();
   };
 
@@ -399,7 +454,7 @@ const GroupCreationForm: React.FC<GroupCreationFormProps> = ({ open, onClose, on
                     error={formik.touched.mailNickname && Boolean(formik.errors.mailNickname)}
                     helperText={
                       (formik.touched.mailNickname && formik.errors.mailNickname) ||
-                      `Email will be: ${formik.values.mailNickname || 'nickname'}@contoso.com`
+                      `Email will be: ${formik.values.mailNickname || 'nickname'}@${currentDomain}`
                     }
                     required={formik.values.mailEnabled}
                   />
@@ -544,7 +599,8 @@ const GroupCreationForm: React.FC<GroupCreationFormProps> = ({ open, onClose, on
               <Grid item xs={12}>
                 <Autocomplete
                   multiple
-                  options={mockUsers}
+                  options={availableUsers}
+                  loading={isLoadingUsers}
                   getOptionLabel={(option) => `${option.displayName} (${option.userPrincipalName})`}
                   value={formik.values.owners}
                   onChange={(_, value) => formik.setFieldValue('owners', value)}
@@ -577,9 +633,10 @@ const GroupCreationForm: React.FC<GroupCreationFormProps> = ({ open, onClose, on
               <Grid item xs={12}>
                 <Autocomplete
                   multiple
-                  options={mockUsers.filter(user => 
+                  options={availableUsers.filter(user => 
                     !formik.values.owners.some(owner => owner.id === user.id)
                   )}
+                  loading={isLoadingUsers}
                   getOptionLabel={(option) => `${option.displayName} (${option.userPrincipalName})`}
                   value={formik.values.members}
                   onChange={(_, value) => formik.setFieldValue('members', value)}
@@ -664,7 +721,7 @@ const GroupCreationForm: React.FC<GroupCreationFormProps> = ({ open, onClose, on
                           <ListItemIcon><Email /></ListItemIcon>
                           <ListItemText 
                             primary="Email Address" 
-                            secondary={`${formik.values.mailNickname}@contoso.com`}
+                            secondary={`${formik.values.mailNickname}@${currentDomain}`}
                           />
                         </ListItem>
                       )}
@@ -727,6 +784,14 @@ const GroupCreationForm: React.FC<GroupCreationFormProps> = ({ open, onClose, on
             </Step>
           ))}
         </Stepper>
+
+        {createError && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            <Typography variant="body2">
+              <strong>Failed to create group:</strong> {createError}
+            </Typography>
+          </Alert>
+        )}
 
         <form onSubmit={formik.handleSubmit}>
           {renderStepContent(activeStep)}
