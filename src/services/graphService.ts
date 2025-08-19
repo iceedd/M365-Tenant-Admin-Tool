@@ -246,6 +246,74 @@ export class GraphService {
   }
 
   /**
+   * Update an existing group
+   */
+  async updateGroup(groupId: string, updates: Partial<Group>): Promise<void> {
+    return this.executeGraphCall(async () => {
+      await this.client.api(`/groups/${groupId}`).patch(updates);
+      logger.info(`Group updated successfully: ${groupId}`, {
+        userId: this.userId,
+        updatedGroupId: groupId,
+        updates: Object.keys(updates)
+      });
+    }, 'PATCH', `/groups/${groupId}`);
+  }
+
+  /**
+   * Delete a group
+   */
+  async deleteGroup(groupId: string): Promise<void> {
+    return this.executeGraphCall(async () => {
+      await this.client.api(`/groups/${groupId}`).delete();
+      logger.info(`Group deleted successfully: ${groupId}`, {
+        userId: this.userId,
+        deletedGroupId: groupId
+      });
+    }, 'DELETE', `/groups/${groupId}`);
+  }
+
+  /**
+   * Get group members
+   */
+  async getGroupMembers(groupId: string): Promise<any[]> {
+    return this.executeGraphCall(async () => {
+      const response = await this.client.api(`/groups/${groupId}/members`).get();
+      return response.value || [];
+    }, 'GET', `/groups/${groupId}/members`);
+  }
+
+  /**
+   * Get group owners
+   */
+  async getGroupOwners(groupId: string): Promise<any[]> {
+    return this.executeGraphCall(async () => {
+      const response = await this.client.api(`/groups/${groupId}/owners`).get();
+      return response.value || [];
+    }, 'GET', `/groups/${groupId}/owners`);
+  }
+
+  /**
+   * Add owners to a group
+   */
+  async addGroupOwners(groupId: string, ownerIds: string[]): Promise<void> {
+    return this.executeGraphCall(async () => {
+      for (const ownerId of ownerIds) {
+        const ownerRef = {
+          '@odata.id': `https://graph.microsoft.com/v1.0/users/${ownerId}`
+        };
+        
+        await this.client.api(`/groups/${groupId}/owners/$ref`).post(ownerRef);
+      }
+      
+      logger.info(`Owners added to group: ${groupId}`, {
+        userId: this.userId,
+        groupId,
+        ownerIds
+      });
+    }, 'POST', `/groups/${groupId}/owners/$ref`);
+  }
+
+  /**
    * Add members to a group
    */
   async addGroupMembers(groupId: string, memberIds: string[]): Promise<void> {

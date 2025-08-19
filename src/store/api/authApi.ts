@@ -2,27 +2,43 @@ import { apiSlice } from './apiSlice';
 
 export const authApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    login: builder.mutation({
-      query: (credentials) => ({
+    getAuthUrl: builder.query({
+      query: (state?: string) => ({
         url: '/auth/login',
-        method: 'POST',
-        body: credentials,
+        params: state ? { state } : undefined,
       }),
     }),
-    getCurrentUser: builder.query({
-      query: () => '/auth/me',
+    exchangeCodeForTokens: builder.mutation({
+      query: ({ code, state }) => ({
+        url: '/auth/callback',
+        method: 'POST',
+        body: { code, state },
+      }),
+    }),
+    refreshToken: builder.mutation({
+      query: ({ refreshToken, userId }) => ({
+        url: '/auth/refresh',
+        method: 'POST',
+        body: { refreshToken, userId },
+      }),
+    }),
+    checkAuthStatus: builder.query({
+      query: () => '/auth/status',
     }),
     logout: builder.mutation({
-      query: () => ({
+      query: (userId) => ({
         url: '/auth/logout',
         method: 'POST',
+        body: { userId },
       }),
     }),
   }),
 });
 
 export const {
-  useLoginMutation,
-  useGetCurrentUserQuery,
+  useGetAuthUrlQuery,
+  useExchangeCodeForTokensMutation,
+  useRefreshTokenMutation,
+  useCheckAuthStatusQuery,
   useLogoutMutation,
 } = authApi;

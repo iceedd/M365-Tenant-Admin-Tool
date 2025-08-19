@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M365 Tenant Admin Tool - Secure Authentication Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 4px solid #0078d4;
+            background-color: #f8f9fa;
+        }
+        button {
+            background-color: #0078d4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #106ebe;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .success {
+            color: #107c10;
+            font-weight: bold;
+        }
+        .error {
+            color: #d13438;
+            font-weight: bold;
+        }
+        .data-container {
+            background-color: #f1f1f1;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .loading {
+            color: #0078d4;
+            font-style: italic;
+        }
+        .auth-info {
+            background-color: #e6f3ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 M365 Tenant Admin Tool - Secure Authentication Test</h1>
+        <p><strong>✅ SECURE:</strong> This approach uses user authentication with NO client secrets - perfect for public hosting!</p>
+        
+        <div class="auth-info">
+            <h3>Current Status:</h3>
+            <div id="authStatus">Not authenticated</div>
+            <div id="userInfo"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 1: Authenticate with your M365 tenant</h3>
+            <button onclick="authenticate()">🔑 Sign in with Microsoft</button>
+            <div id="authResult"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 2: Test Real Data Endpoints</h3>
+            <button onclick="testLicenses()" id="licenseBtn" disabled>📄 Get Real Licenses</button>
+            <button onclick="testUsers()" id="userBtn" disabled>👥 Get Real Users</button>
+            <button onclick="testGroups()" id="groupBtn" disabled>🏢 Get Real Groups</button>
+            <button onclick="testAuditLogs()" id="auditBtn" disabled>📊 Get Real Audit Logs</button>
+            <button onclick="testOrganization()" id="orgBtn" disabled>🏛️ Get Organization Info</button>
+        </div>
+
+        <div class="step">
+            <h3>Results:</h3>
+            <div id="results"></div>
+        </div>
+    </div>
+
+    <script>
+        let accessToken = null;
+        let userAccount = null;
+
+        // Check for auth callback
+        window.addEventListener('load', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const state = urlParams.get('state');
+            
+            if (code) {
+                exchangeToken(code, state);
+            }
+        });
+
+        async function authenticate() {
+            try {
+                document.getElementById('authResult').innerHTML = '<div class="loading">Getting authentication URL...</div>';
+                
+                const response = await fetch('http://localhost:3004/api/secure-data/get-auth-url', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({})
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('authResult').innerHTML = '<div class="success">Redirecting to Microsoft sign-in...</div>';
+                    // Store state for validation
+                    sessionStorage.setItem('authState', data.data.state);
+                    // Redirect to Microsoft sign-in
+                    window.location.href = data.data.authUrl;
+                } else {
+                    document.getElementById('authResult').innerHTML = `<div class="error">Error: ${data.message}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('authResult').innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function exchangeToken(code, state) {
+            try {
+                document.getElementById('authResult').innerHTML = '<div class="loading">Exchanging authorization code for access token...</div>';
+                
+                const response = await fetch('http://localhost:3004/api/secure-data/exchange-token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ code, state })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    accessToken = data.data.accessToken;
+                    userAccount = data.data.account;
+                    
+                    document.getElementById('authStatus').innerHTML = '<div class="success">✅ Authenticated successfully!</div>';
+                    document.getElementById('userInfo').innerHTML = `
+                        <strong>User:</strong> ${userAccount.name || userAccount.username}<br>
+                        <strong>Tenant:</strong> ${userAccount.tenantId}<br>
+                        <strong>Token Expires:</strong> ${new Date(data.data.expiresOn).toLocaleString()}
+                    `;
+                    document.getElementById('authResult').innerHTML = '<div class="success">Authentication successful! You can now test the data endpoints.</div>';
+                    
+                    // Enable buttons
+                    ['licenseBtn', 'userBtn', 'groupBtn', 'auditBtn', 'orgBtn'].forEach(id => {
+                        document.getElementById(id).disabled = false;
+                    });
+                    
+                    // Clear URL parameters
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } else {
+                    document.getElementById('authResult').innerHTML = `<div class="error">Token exchange failed: ${data.message}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('authResult').innerHTML = `<div class="error">Token exchange error: ${error.message}</div>`;
+            }
+        }
+
+        async function testEndpoint(endpoint, buttonId, title) {
+            if (!accessToken) {
+                alert('Please authenticate first');
+                return;
+            }
+
+            const button = document.getElementById(buttonId);
+            button.disabled = true;
+            button.textContent = '⏳ Loading...';
+            
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                const response = await fetch(`http://localhost:3004/api/secure-data/${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ accessToken })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultsDiv.innerHTML = `
+                        <h4>${title} - SUCCESS ✅</h4>
+                        <p><strong>Message:</strong> ${data.message}</p>
+                        <div class="data-container">
+                            <pre>${JSON.stringify(data.data, null, 2)}</pre>
+                        </div>
+                    ` + resultsDiv.innerHTML;
+                } else {
+                    resultsDiv.innerHTML = `
+                        <h4>${title} - ERROR ❌</h4>
+                        <p><strong>Error:</strong> ${data.message}</p>
+                        <div class="data-container">
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    ` + resultsDiv.innerHTML;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <h4>${title} - NETWORK ERROR ❌</h4>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                ` + resultsDiv.innerHTML;
+            }
+            
+            button.disabled = false;
+            button.textContent = button.textContent.replace('⏳ Loading...', title.split(' - ')[0]);
+        }
+
+        function testLicenses() {
+            testEndpoint('licenses', 'licenseBtn', '📄 Licenses');
+        }
+
+        function testUsers() {
+            testEndpoint('users', 'userBtn', '👥 Users');
+        }
+
+        function testGroups() {
+            testEndpoint('groups', 'groupBtn', '🏢 Groups');
+        }
+
+        function testAuditLogs() {
+            testEndpoint('audit-logs', 'auditBtn', '📊 Audit Logs');
+        }
+
+        function testOrganization() {
+            testEndpoint('organization', 'orgBtn', '🏛️ Organization');
+        }
+    </script>
+</body>
+</html>

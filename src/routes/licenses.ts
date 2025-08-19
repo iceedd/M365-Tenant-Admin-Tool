@@ -18,7 +18,7 @@ router.use(graphAuth);
 router.get(
   '/',
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     const licenses = await graphService.getLicenses();
     
     logUserAction('list_licenses', req.user.id, 'licenses', {
@@ -42,7 +42,7 @@ router.get(
 router.get(
   '/summary',
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     const licenses = await graphService.getLicenses();
     
     // Calculate summary statistics
@@ -90,7 +90,7 @@ router.get(
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { skuId } = req.params;
     
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     const licenses = await graphService.getLicenses();
     
     const license = licenses.find(l => l.skuId === skuId);
@@ -166,7 +166,7 @@ router.get(
 router.get(
   '/serviceplans',
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     const licenses = await graphService.getLicenses();
     
     // Extract all unique service plans
@@ -216,7 +216,7 @@ router.get(
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { period = '30' } = req.query; // Default to 30 days
     
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     const licenses = await graphService.getLicenses();
     
     // Generate usage report

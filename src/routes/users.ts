@@ -67,8 +67,8 @@ router.get(
     const { filter, select, top, page, limit } = req.query as any;
     const selectArray = select ? select.split(',') : undefined;
     
-    // Create Graph service instance (in production, use stored access token)
-    const graphService = new GraphService('access_token_here', req.user.id);
+    // Create Graph service instance with real access token
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     
     const users = await graphService.getUsers(filter, selectArray, top || limit);
     
@@ -106,7 +106,7 @@ router.get(
     const { select } = req.query;
     const selectArray = select ? (select as string).split(',') : undefined;
     
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     const user = await graphService.getUser(id, selectArray);
     
     logUserAction('get_user', req.user.id, `user:${id}`);
@@ -132,7 +132,7 @@ router.post(
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userData: User = req.body;
     
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     const createdUser = await graphService.createUser(userData);
     
     logUserAction('create_user', req.user.id, `user:${createdUser.id}`, {
@@ -162,7 +162,7 @@ router.patch(
     const { id } = req.params;
     const updates: Partial<User> = req.body;
     
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     await graphService.updateUser(id, updates);
     
     logUserAction('update_user', req.user.id, `user:${id}`, {
@@ -188,7 +188,7 @@ router.delete(
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     await graphService.deleteUser(id);
     
     logUserAction('delete_user', req.user.id, `user:${id}`);
@@ -214,7 +214,7 @@ router.post(
     const { id } = req.params;
     const { licenseSkuIds } = req.body;
     
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     await graphService.assignLicenses(id, licenseSkuIds);
     
     logUserAction('assign_licenses', req.user.id, `user:${id}`, {
@@ -242,7 +242,7 @@ router.post(
     const { id } = req.params;
     const { licenseSkuIds } = req.body;
     
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     await graphService.removeLicenses(id, licenseSkuIds);
     
     logUserAction('remove_licenses', req.user.id, `user:${id}`, {
@@ -267,7 +267,7 @@ router.get(
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     const licenses = await graphService.getUserLicenses(id);
     
     logUserAction('get_user_licenses', req.user.id, `user:${id}`);
@@ -295,7 +295,7 @@ router.post(
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { users } = req.body;
     
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     const results = await graphService.createUsersBatch(users);
     
     logUserAction('batch_create_users', req.user.id, 'users', {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useGetLicensesQuery, useGetLicenseUsageQuery, useGetLicenseDetailsQuery, useGetUsersWithLicenseQuery } from '../../store/api/licensesApi';
+import { useGetLicensesQuery, useGetLicenseUsageQuery, useGetLicenseQuery, useGetUsersWithLicenseQuery } from '../../store/api/licensesApi';
 import {
   Box,
   Card,
@@ -218,7 +218,7 @@ const LicenseManagement: React.FC = () => {
     
   // Fetch license details when a license is selected
   const { data: licenseDetailsData, isLoading: isLoadingDetails } = 
-    useGetLicenseDetailsQuery(selectedLicense?.skuId || '', { skip: !selectedLicense });
+    useGetLicenseQuery(selectedLicense?.skuId || '', { skip: !selectedLicense });
     
   // Convert API data to our component's expected format
   const [licenses, setLicenses] = useState<License[]>([]);
@@ -422,7 +422,7 @@ const LicenseManagement: React.FC = () => {
           </Grid>
           ))}
         </Grid>
-      )
+      )}
 
       {/* License Summary Table */}
       <Card>
@@ -649,28 +649,7 @@ const LicenseManagement: React.FC = () => {
                       </Box>
                     </TableCell>
                   </TableRow>
-                ) : []/* TODO: Connect to real user licenses data */.map((user) => (
-                  <TableRow key={user.userId}>
-                    <TableCell>{user.displayName}</TableCell>
-                    <TableCell>{user.userPrincipalName}</TableCell>
-                    <TableCell>{user.department}</TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        {user.assignedLicenses.map((license, index) => (
-                          <Chip key={index} label={license} size="small" variant="outlined" />
-                        ))}
-                      </Box>
-                    </TableCell>
-                    <TableCell>{user.lastSignIn}</TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={user.accountEnabled ? 'Active' : 'Disabled'} 
-                        size="small" 
-                        color={user.accountEnabled ? 'success' : 'error'}
-                      />
-                    </TableCell>
-                  </TableRow>
-                )) : (
+                ) : (
                   <TableRow>
                     <TableCell colSpan={6} align="center">
                       <Alert severity="info" sx={{ my: 2 }}>
@@ -678,7 +657,7 @@ const LicenseManagement: React.FC = () => {
                       </Alert>
                     </TableCell>
                   </TableRow>
-                )
+                )}
               </TableBody>
             </Table>
           </TableContainer>

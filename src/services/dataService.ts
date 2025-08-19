@@ -52,44 +52,12 @@ export class DataService {
         console.log(`✅ DataService.getUsers: Successfully fetched ${users.length} real users`);
         return users;
       } catch (error) {
-        console.error('❌ DataService.getUsers: Failed to fetch real users, falling back to mock data:', error);
+        console.error('❌ DataService.getUsers: Failed to fetch real users:', error);
+        throw new Error('Failed to fetch users. Please ensure you are authenticated and have proper permissions.');
       }
     }
 
-    console.log('🔄 DataService.getUsers: Using mock data fallback');
-    // Mock data fallback
-    return [
-      {
-        id: '1',
-        displayName: 'John Smith',
-        userPrincipalName: 'john.smith@contoso.com',
-        mail: 'john.smith@contoso.com',
-        jobTitle: 'Software Engineer',
-        department: 'IT',
-        officeLocation: 'Seattle',
-        assignedLicenses: []
-      },
-      {
-        id: '2', 
-        displayName: 'Sarah Wilson',
-        userPrincipalName: 'sarah.wilson@contoso.com',
-        mail: 'sarah.wilson@contoso.com',
-        jobTitle: 'Administrator',
-        department: 'IT',
-        officeLocation: 'New York',
-        assignedLicenses: []
-      },
-      {
-        id: '3',
-        displayName: 'Mike Johnson', 
-        userPrincipalName: 'mike.johnson@contoso.com',
-        mail: 'mike.johnson@contoso.com',
-        jobTitle: 'Manager',
-        department: 'Sales',
-        officeLocation: 'Los Angeles',
-        assignedLicenses: []
-      }
-    ] as User[];
+    throw new Error('Authentication service not available. Please configure Azure AD integration.');
   }
 
   async createUser(userData: {
@@ -123,17 +91,7 @@ export class DataService {
       }
     }
 
-    // Mock creation
-    console.log('Mock user creation:', userData);
-    return {
-      id: Date.now().toString(),
-      displayName: userData.displayName,
-      userPrincipalName: userData.userPrincipalName,
-      mail: userData.userPrincipalName,
-      jobTitle: userData.jobTitle,
-      department: userData.department,
-      officeLocation: userData.officeLocation
-    } as User;
+    throw new Error('Authentication service not available. Please configure Azure AD integration.');
   }
 
   // ====== GROUP MANAGEMENT ======

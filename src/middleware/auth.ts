@@ -188,6 +188,9 @@ export const optionalAuth = async (
   }
 };
 
+// In-memory token storage (for development - use Redis/database in production)
+const tokenStorage = new Map<string, { accessToken: string; refreshToken?: string; expiresOn: Date }>();
+
 /**
  * Middleware to extract and validate Graph API access token
  */
@@ -208,26 +211,54 @@ export const graphAuth = async (
       return;
     }
 
-    // In a real implementation, you would:
-    // 1. Retrieve the stored access token for this user (from database/cache)
-    // 2. Check if it's expired and refresh if needed
-    // 3. Attach the valid access token to the request
+    // Get stored tokens for this user
+    const storedTokens = tokenStorage.get(user.id);
     
-    // For now, we'll assume the access token is stored securely elsewhere
-    // and retrieved based on the user ID
-    
-    // Example:
-    // const storedTokens = await tokenStorage.getTokens(user.id);
-    // if (authService.isTokenExpired(storedTokens.expiresOn)) {
-    //   const refreshedTokens = await authService.refreshAccessToken(storedTokens.refreshToken, user.id);
-    //   await tokenStorage.updateTokens(user.id, refreshedTokens);
-    //   req.graphAccessToken = refreshedTokens.accessToken;
-    // } else {
-    //   req.graphAccessToken = storedTokens.accessToken;
-    // }
+    if (!storedTokens) {
+      logger.warn('No stored access token found for user', { userId: user.id });
+      res.status(401).json({
+        success: false,
+        error: 'NO_ACCESS_TOKEN',
+        message: 'No access token available. Please re-authenticate.'
+      });
+      return;
+    }
 
-    // For development purposes, we'll skip this check
-    // In production, implement proper token storage and refresh logic
+    // Check if token is expired and refresh if needed
+    if (authService.isTokenExpired(storedTokens.expiresOn)) {
+      if (storedTokens.refreshToken) {
+        try {
+          const refreshedUser = await authService.refreshAccessToken(storedTokens.refreshToken, user.id);
+          
+          // Update stored tokens
+          tokenStorage.set(user.id, {
+            accessToken: refreshedUser.accessToken,
+            refreshToken: refreshedUser.refreshToken || storedTokens.refreshToken,
+            expiresOn: refreshedUser.expiresOn
+          });
+          
+          req.graphAccessToken = refreshedUser.accessToken;
+          logger.info('Access token refreshed successfully', { userId: user.id });
+        } catch (refreshError: any) {
+          logger.error('Token refresh failed', { userId: user.id, error: refreshError.message });
+          res.status(401).json({
+            success: false,
+            error: 'TOKEN_REFRESH_FAILED',
+            message: 'Unable to refresh access token. Please re-authenticate.'
+          });
+          return;
+        }
+      } else {
+        res.status(401).json({
+          success: false,
+          error: 'TOKEN_EXPIRED',
+          message: 'Access token expired and no refresh token available. Please re-authenticate.'
+        });
+        return;
+      }
+    } else {
+      req.graphAccessToken = storedTokens.accessToken;
+    }
     
     next();
   } catch (error: any) {
@@ -244,6 +275,17 @@ export const graphAuth = async (
       message: 'Graph authentication service error'
     });
   }
+};
+
+/**
+ * Store access token for a user (helper function)
+ */
+export const storeUserTokens = (userId: string, accessToken: string, refreshToken?: string, expiresOn?: Date): void => {
+  tokenStorage.set(userId, {
+    accessToken,
+    refreshToken,
+    expiresOn: expiresOn || new Date(Date.now() + 3600000) // 1 hour default
+  });
 };
 
 /**

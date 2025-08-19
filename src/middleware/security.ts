@@ -11,8 +11,20 @@ import logger, { logSecurityEvent } from '../utils/logger';
  */
 export const corsOptions = {
   origin: (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
-    // Allow requests with no origin (mobile apps, postman, etc.)
-    if (!origin) return callback(null, true);
+    // Allow requests with no origin (mobile apps, postman, file:// etc.)
+    if (!origin || origin === 'null') {
+      return callback(null, true);
+    }
+    
+    // Allow file:// protocol for local testing (test-auth.html)
+    if (origin.startsWith('file://')) {
+      return callback(null, true);
+    }
+    
+    // Allow localhost origins for development
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
     
     const allowedOrigins = config.cors.origin.split(',').map(o => o.trim());
     

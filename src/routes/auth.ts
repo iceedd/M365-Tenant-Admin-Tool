@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import AuthService from '../services/authService';
 import { asyncHandler, validate } from '../middleware/errorHandler';
-import { authRateLimit } from '../middleware/auth';
+import { authRateLimit, storeUserTokens } from '../middleware/auth';
 import { ApiResponse } from '../types/index';
 import Joi from 'joi';
 import logger from '../utils/logger';
@@ -39,6 +39,27 @@ router.get('/login', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 /**
+ * GET /auth/callback
+ * Handle OAuth redirect from Azure AD (for testing)
+ */
+router.get('/callback', asyncHandler(async (req: Request, res: Response) => {
+  const { code, state, error, error_description } = req.query;
+  
+  if (error) {
+    logger.error('OAuth callback error:', { error, error_description });
+    return res.redirect(`http://localhost:3000/auth-test.html?error=${encodeURIComponent(error_description || error)}`);
+  }
+  
+  if (!code) {
+    return res.redirect(`http://localhost:3000/auth-test.html?error=${encodeURIComponent('No authorization code received')}`);
+  }
+  
+  // Redirect back to test page with the authorization code
+  const redirectUrl = `http://localhost:3000/auth-test.html?code=${encodeURIComponent(code as string)}&state=${encodeURIComponent(state as string || '')}`;
+  res.redirect(redirectUrl);
+}));
+
+/**
  * POST /auth/callback
  * Handle OAuth callback and exchange code for tokens
  */
@@ -55,6 +76,9 @@ router.post(
     
     // Get user roles from Graph API
     authUser.roles = await authService.getUserRoles(authUser.accessToken);
+    
+    // Store access token for Graph API calls
+    storeUserTokens(authUser.id, authUser.accessToken, authUser.refreshToken, authUser.expiresOn);
     
     // Generate JWT for session management
     const sessionToken = authService.generateJWT(authUser);
@@ -109,6 +133,9 @@ router.post(
     
     // Get updated user roles
     authUser.roles = await authService.getUserRoles(authUser.accessToken);
+    
+    // Store updated tokens
+    storeUserTokens(authUser.id, authUser.accessToken, authUser.refreshToken, authUser.expiresOn);
     
     // Generate new JWT
     const sessionToken = authService.generateJWT(authUser);

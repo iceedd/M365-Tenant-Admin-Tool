@@ -5,6 +5,8 @@ import groupRoutes from './groups';
 import licenseRoutes from './licenses';
 import reportRoutes from './reports';
 import settingsRoutes from './settings';
+import testDataRoutes from './test-data';
+import secureDataRoutes from './secure-data';
 
 const router = Router();
 
@@ -25,5 +27,11 @@ router.use('/groups', groupRoutes);
 router.use('/licenses', licenseRoutes);
 router.use('/reports', reportRoutes);
 router.use('/settings', settingsRoutes);
+
+// Test data routes (no auth required for testing)
+router.use('/test-data', testDataRoutes);
+
+// Secure data routes (user authentication-based - PRODUCTION READY)
+router.use('/secure-data', secureDataRoutes);
 
 export default router;

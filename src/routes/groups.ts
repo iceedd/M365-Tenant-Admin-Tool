@@ -50,7 +50,7 @@ router.get(
     const { filter, select, top } = req.query as any;
     const selectArray = select ? select.split(',') : undefined;
     
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     const groups = await graphService.getGroups(filter, selectArray, top);
     
     logUserAction('list_groups', req.user.id, 'groups', {
@@ -78,7 +78,7 @@ router.get(
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     const group = await graphService.getGroup(id);
     
     logUserAction('get_group', req.user.id, `group:${id}`);
@@ -104,7 +104,7 @@ router.post(
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const groupData: Group = req.body;
     
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     const createdGroup = await graphService.createGroup(groupData);
     
     logUserAction('create_group', req.user.id, `group:${createdGroup.id}`, {
@@ -134,8 +134,8 @@ router.patch(
     const { id } = req.params;
     const updates: Partial<Group> = req.body;
     
-    // Note: Graph API doesn't have updateGroup method in our service
-    // This would need to be implemented similar to updateUser
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
+    await graphService.updateGroup(id, updates);
     
     logUserAction('update_group', req.user.id, `group:${id}`, {
       updates: Object.keys(updates)
@@ -160,8 +160,8 @@ router.delete(
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     
-    // Note: Graph API doesn't have deleteGroup method in our service
-    // This would need to be implemented similar to deleteUser
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
+    await graphService.deleteGroup(id);
     
     logUserAction('delete_group', req.user.id, `group:${id}`);
     
@@ -186,7 +186,7 @@ router.post(
     const { id } = req.params;
     const { memberIds } = req.body;
     
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     await graphService.addGroupMembers(id, memberIds);
     
     logUserAction('add_group_members', req.user.id, `group:${id}`, {
@@ -213,7 +213,7 @@ router.delete(
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id, memberId } = req.params;
     
-    const graphService = new GraphService('access_token_here', req.user.id);
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
     await graphService.removeGroupMember(id, memberId);
     
     logUserAction('remove_group_member', req.user.id, `group:${id}`, {
@@ -238,14 +238,14 @@ router.get(
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     
-    // Note: This would require implementing getGroupMembers in GraphService
-    // For now, returning a placeholder response
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
+    const members = await graphService.getGroupMembers(id);
     
     logUserAction('get_group_members', req.user.id, `group:${id}`);
     
     const response: ApiResponse = {
       success: true,
-      data: [],
+      data: members,
       message: 'Group members retrieved successfully'
     };
     
@@ -262,13 +262,14 @@ router.get(
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     
-    // Note: This would require implementing getGroupOwners in GraphService
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
+    const owners = await graphService.getGroupOwners(id);
     
     logUserAction('get_group_owners', req.user.id, `group:${id}`);
     
     const response: ApiResponse = {
       success: true,
-      data: [],
+      data: owners,
       message: 'Group owners retrieved successfully'
     };
     
@@ -288,7 +289,8 @@ router.post(
     const { id } = req.params;
     const { memberIds } = req.body;
     
-    // Note: This would require implementing addGroupOwners in GraphService
+    const graphService = new GraphService(req.graphAccessToken!, req.user.id);
+    await graphService.addGroupOwners(id, memberIds);
     
     logUserAction('add_group_owners', req.user.id, `group:${id}`, {
       ownerIds: memberIds,

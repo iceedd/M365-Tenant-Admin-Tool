@@ -10,7 +10,16 @@
     "lint:fix": "eslint src --ext ts,tsx --fix",
     "type-check": "tsc --noEmit",
     "start:backend-dev": "ts-node -P tsconfig.backend.json src/server.ts",
-    "start:backend-dev:transpile-only": "ts-node --transpile-only -P tsconfig.backend.json src/server.ts"
+    "start:backend-dev:transpile-only": "ts-node --transpile-only -P tsconfig.backend.json src/server.ts",
+    "status:update": "node scripts/status-logger.js update",
+    "status:watch": "node scripts/update-status.js --watch",
+    "status:check": "node scripts/status-logger.js health",
+    "status:log": "node scripts/status-logger.js log \"Manual log entry\"",
+    "status:servers": "node scripts/status-logger.js servers",
+    "status:health": "node scripts/status-logger.js health --verbose",
+    "status:env": "node scripts/status-logger.js env",
+    "status:git": "node scripts/status-logger.js git",
+    "status:demo": "node scripts/demo-watch.js 15"
   },
   "dependencies": {
     "@azure/msal-browser": "^4.20.0",
