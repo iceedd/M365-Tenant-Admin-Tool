@@ -37,6 +37,7 @@ import {
 import {
   Security,
   Email,
+  People,
   GroupWork,
   Shield,
   Public,
@@ -102,7 +103,8 @@ const validationSchema = Yup.object({
     }),
   
   description: Yup.string()
-    .max(1024, 'Description cannot exceed 1024 characters'),
+    .max(1024, 'Description cannot exceed 1024 characters')
+    .matches(/^[^<>]*$/, 'Description cannot contain angle brackets (< >)'),
   
   groupType: Yup.string()
     .required('Group type is required')
@@ -372,14 +374,14 @@ const GroupCreationForm: React.FC<GroupCreationFormProps> = ({ open, onClose, on
                   fullWidth
                   multiline
                   rows={3}
-                  label="Description"
+                  label="Description (Optional)"
                   name="description"
                   value={formik.values.description}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
                   error={formik.touched.description && Boolean(formik.errors.description)}
                   helperText={formik.touched.description && formik.errors.description}
-                  placeholder="Describe the purpose and scope of this group..."
+                  placeholder="Describe the purpose and scope of this group (optional)..."
                 />
               </Grid>
 

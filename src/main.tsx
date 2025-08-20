@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App-Azure-Integrated';
+import App from './App';
 
 // Enable React StrictMode for development
 const rootElement = document.getElementById('root');

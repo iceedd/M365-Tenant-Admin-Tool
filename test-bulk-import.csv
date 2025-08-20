@@ -1,0 +1,4 @@
+displayName,userPrincipalName,firstName,lastName,jobTitle,department,office,password,forcePasswordChange,usageLocation,licenseType
+Test User 4,testuser4@yourdomain.onmicrosoft.com,Test,User4,Software Engineer,IT,New York,TempPass123!,true,US,DEVELOPERPACK_E5
+Test User 5,testuser5@yourdomain.onmicrosoft.com,Test,User5,Product Manager,Marketing,San Francisco,TempPass456!,true,US,DEVELOPERPACK_E5
+Test User 6,testuser6@yourdomain.onmicrosoft.com,Test,User6,Data Analyst,Analytics,Chicago,TempPass789!,true,US,DEVELOPERPACK_E5

@@ -4,12 +4,12 @@ import {
   TableCell, TableContainer, TableHead, TableRow, Paper, Dialog, DialogTitle,
   DialogContent, DialogActions, List, ListItem, ListItemText, Chip, TextField,
   FormControl, InputLabel, Select, MenuItem, Tabs, Tab, Alert, CircularProgress,
-  Snackbar, Fab, Menu, MenuList, MenuItem as MenuItemComponent, Avatar
+  Snackbar, Fab, Menu, MenuList, MenuItem as MenuItemComponent, Avatar, Autocomplete
 } from '@mui/material';
 import {
   Group, Security, Email, People, PersonAdd, Add, Edit, Delete, MoreVert,
   Refresh, FilterList, Search, Settings, CheckCircle, AdminPanelSettings,
-  Shield, Business, Public, VpnLock, MailOutline, GroupWork
+  Shield, Business, Public, VpnLock, MailOutline, GroupWork, GetApp
 } from '@mui/icons-material';
 import { getDataService } from '../services/dataService';
 import type { Group as GraphGroup, User, DirectoryObject } from '@microsoft/microsoft-graph-types';
@@ -23,6 +23,13 @@ interface GroupMember {
   department?: string;
   jobTitle?: string;
   accountEnabled: boolean;
+}
+
+interface UserOption {
+  id: string;
+  displayName: string;
+  userPrincipalName: string;
+  department?: string;
 }
 
 interface EnhancedGroup extends GraphGroup {
@@ -46,6 +53,13 @@ const GroupManagementLive: React.FC = () => {
   const [filterType, setFilterType] = useState<string>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showRefreshSuccess, setShowRefreshSuccess] = useState(false);
+  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
+  const [showEditGroupDialog, setShowEditGroupDialog] = useState(false);
+  const [showGroupSettingsDialog, setShowGroupSettingsDialog] = useState(false);
+  const [editGroupFormData, setEditGroupFormData] = useState<{displayName: string; description: string; visibility: string}>({displayName: '', description: '', visibility: 'Private'});
+  const [availableUsers, setAvailableUsers] = useState<UserOption[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [selectedUsersForAdding, setSelectedUsersForAdding] = useState<UserOption[]>([]);
 
   const dataService = getDataService();
 
@@ -63,15 +77,25 @@ const GroupManagementLive: React.FC = () => {
             let memberCount = 0;
             let ownerCount = 0;
             
-            if (dataService.isUsingRealApi()) {
-              // For real API, we would need to make separate calls to get member counts
-              // For now, we'll use placeholder values
-              memberCount = Math.floor(Math.random() * 20) + 1; // Placeholder
-              ownerCount = Math.floor(Math.random() * 3) + 1; // Placeholder
+            if (dataService.isUsingRealApi() && group.id) {
+              // Get real member counts from API
+              try {
+                const [members, owners] = await Promise.all([
+                  dataService.getGroupMembers(group.id),
+                  dataService.getGroupOwners(group.id)
+                ]);
+                memberCount = members.length;
+                ownerCount = owners.length;
+                console.log(`📊 Group ${group.displayName}: ${memberCount} members, ${ownerCount} owners`);
+              } catch (err) {
+                console.warn(`Failed to get member count for group ${group.displayName}:`, err);
+                memberCount = 0;
+                ownerCount = 0;
+              }
             } else {
-              // For mock data, use random values
-              memberCount = Math.floor(Math.random() * 20) + 1;
-              ownerCount = Math.floor(Math.random() * 3) + 1;
+              // For mock data or missing group ID, set to 0
+              memberCount = 0;
+              ownerCount = 0;
             }
 
             return {
@@ -105,16 +129,23 @@ const GroupManagementLive: React.FC = () => {
     if (!group.id) return;
     
     try {
+      console.log(`🔄 Loading details for group: ${group.displayName} (ID: ${group.id})`);
+      
       // Load group members and owners
       const [members, owners] = await Promise.all([
-        dataService.getGroupMembers(group.id).catch(() => []),
-        dataService.getGroupOwners(group.id).catch(() => [])
+        dataService.getGroupMembers(group.id),
+        dataService.getGroupOwners(group.id)
       ]);
+      
+      console.log(`✅ Loaded group details: ${members.length} members, ${owners.length} owners`);
       
       setGroupMembers(members);
       setGroupOwners(owners);
     } catch (err) {
-      console.error('Failed to load group details:', err);
+      console.error('❌ Failed to load group details:', err);
+      // Set empty arrays on error to avoid showing stale data
+      setGroupMembers([]);
+      setGroupOwners([]);
     }
   };
 
@@ -127,6 +158,62 @@ const GroupManagementLive: React.FC = () => {
       console.error('Failed to refresh groups:', error);
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleExportGroups = () => {
+    try {
+      // Prepare data for export
+      const exportData = filteredGroups.map(group => ({
+        'Group Name': group.displayName || 'N/A',
+        'Description': group.description || '',
+        'Group Type': group.securityEnabled && group.mailEnabled ? 'Mail-Enabled Security' :
+                     group.securityEnabled ? 'Security' :
+                     group.mailEnabled ? 'Distribution' : 'Microsoft 365',
+        'Visibility': group.visibility || 'Private',
+        'Email': group.mail || '',
+        'Member Count': group.memberCount,
+        'Owner Count': group.ownerCount,
+        'Created Date': group.createdDateTime ? new Date(group.createdDateTime).toLocaleDateString() : '',
+        'ID': group.id || ''
+      }));
+
+      // Convert to CSV
+      if (exportData.length === 0) {
+        alert('No groups to export');
+        return;
+      }
+
+      const headers = Object.keys(exportData[0]);
+      const csvContent = [
+        headers.join(','),
+        ...exportData.map(row => 
+          headers.map(header => {
+            const value = row[header as keyof typeof row] || '';
+            // Escape commas and quotes in CSV
+            return typeof value === 'string' && (value.includes(',') || value.includes('"')) 
+              ? `"${value.replace(/"/g, '""')}"` 
+              : value;
+          }).join(',')
+        )
+      ].join('\n');
+
+      // Create and download the file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `groups_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      console.log(`Exported ${exportData.length} groups to CSV`);
+    } catch (error) {
+      console.error('Failed to export groups:', error);
+      alert('Failed to export groups. Please try again.');
     }
   };
 
@@ -230,6 +317,100 @@ const GroupManagementLive: React.FC = () => {
   const handleGroupClick = async (group: EnhancedGroup) => {
     setSelectedGroup(group);
     await loadGroupDetails(group);
+  };
+
+  const loadAvailableUsers = async () => {
+    setIsLoadingUsers(true);
+    try {
+      const users = await dataService.getUsers(['id', 'displayName', 'userPrincipalName', 'department']);
+      const userOptions: UserOption[] = users.map(user => ({
+        id: user.id || '',
+        displayName: user.displayName || '',
+        userPrincipalName: user.userPrincipalName || '',
+        department: user.department || undefined
+      }));
+      setAvailableUsers(userOptions);
+    } catch (error) {
+      console.error('Failed to load users for member selection:', error);
+      setAvailableUsers([]);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  const handleAddMember = async () => {
+    if (selectedGroup) {
+      setSelectedUsersForAdding([]);  // Clear any previous selections
+      await loadAvailableUsers();
+      setShowAddMemberDialog(true);
+    }
+  };
+
+  const handleEditGroup = () => {
+    if (selectedGroup) {
+      // Pre-populate the form with current group data
+      setEditGroupFormData({
+        displayName: selectedGroup.displayName || '',
+        description: selectedGroup.description || '',
+        visibility: selectedGroup.visibility || 'Private'
+      });
+      setShowEditGroupDialog(true);
+    }
+  };
+
+  const handleAddMemberSubmit = async (selectedUsers: UserOption[]) => {
+    if (!selectedGroup || !selectedUsers.length) return;
+    
+    try {
+      console.log(`Adding ${selectedUsers.length} members to group ${selectedGroup.displayName}:`, selectedUsers);
+      
+      // Add each selected user to the group using real Graph API
+      for (const user of selectedUsers) {
+        await dataService.addGroupMember(selectedGroup.id!, user.id);
+      }
+      
+      alert(`Successfully added ${selectedUsers.length} members to ${selectedGroup.displayName}`);
+      setShowAddMemberDialog(false);
+      setSelectedUsersForAdding([]);  // Clear selections after successful addition
+      
+      // Refresh group details to show new members
+      await loadGroupDetails(selectedGroup);
+      
+      // Refresh groups list to update member counts
+      await loadGroups();
+    } catch (error) {
+      console.error('Failed to add members:', error);
+      alert(`Failed to add members: ${error}`);
+    }
+  };
+
+  const handleEditGroupSubmit = async (groupData: any) => {
+    if (!selectedGroup) return;
+    
+    try {
+      console.log(`Updating group ${selectedGroup.displayName}:`, groupData);
+      
+      // Update group using real Graph API
+      await dataService.updateGroup(selectedGroup.id!, groupData);
+      
+      alert(`Successfully updated group: ${groupData.displayName}`);
+      setShowEditGroupDialog(false);
+      
+      // Refresh group details to show updated info
+      await loadGroupDetails(selectedGroup);
+      
+      // Refresh groups list
+      await loadGroups();
+    } catch (error) {
+      console.error('Failed to update group:', error);
+      alert(`Failed to update group: ${error}`);
+    }
+  };
+
+  const handleGroupSettings = () => {
+    if (selectedGroup) {
+      setShowGroupSettingsDialog(true);
+    }
   };
 
   const groupTypeStats = {
@@ -355,7 +536,12 @@ const GroupManagementLive: React.FC = () => {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="outlined" startIcon={<FilterList />}>
+          <Button 
+            variant="outlined" 
+            startIcon={<GetApp />}
+            onClick={handleExportGroups}
+            disabled={isLoading || filteredGroups.length === 0}
+          >
             Export Groups
           </Button>
           <Button
@@ -606,10 +792,10 @@ const GroupManagementLive: React.FC = () => {
                   </Box>
                 </Box>
                 <Box>
-                  <IconButton>
+                  <IconButton onClick={handleAddMember} title="Add Member">
                     <PersonAdd />
                   </IconButton>
-                  <IconButton>
+                  <IconButton onClick={handleGroupSettings} title="Group Settings">
                     <Settings />
                   </IconButton>
                 </Box>
@@ -662,59 +848,64 @@ const GroupManagementLive: React.FC = () => {
                 </Grid>
               </Grid>
 
-              {groupMembers.length > 0 && (
-                <>
-                  <Typography variant="subtitle2" sx={{ mt: 3, mb: 2 }}>
-                    Members ({groupMembers.length})
-                  </Typography>
-                  <TableContainer component={Paper} variant="outlined">
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Name</TableCell>
-                          <TableCell>Email</TableCell>
-                          <TableCell>Department</TableCell>
-                          <TableCell>Status</TableCell>
+              <Typography variant="subtitle2" sx={{ mt: 3, mb: 2 }}>
+                Members ({groupMembers.length})
+              </Typography>
+              
+              {groupMembers.length > 0 ? (
+                <TableContainer component={Paper} variant="outlined">
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Name</TableCell>
+                        <TableCell>Email</TableCell>
+                        <TableCell>Department</TableCell>
+                        <TableCell>Status</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {groupMembers.slice(0, 5).map((member) => (
+                        <TableRow key={member.id}>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Avatar sx={{ width: 32, height: 32 }}>
+                                {member.displayName?.charAt(0) || '?'}
+                              </Avatar>
+                              {member.displayName}
+                            </Box>
+                          </TableCell>
+                          <TableCell>{member.userPrincipalName}</TableCell>
+                          <TableCell>{member.department || '-'}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={member.accountEnabled ? 'Active' : 'Disabled'}
+                              size="small"
+                              color={member.accountEnabled ? 'success' : 'error'}
+                            />
+                          </TableCell>
                         </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {groupMembers.slice(0, 5).map((member) => (
-                          <TableRow key={member.id}>
-                            <TableCell>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Avatar sx={{ width: 32, height: 32 }}>
-                                  {member.displayName?.charAt(0) || '?'}
-                                </Avatar>
-                                {member.displayName}
-                              </Box>
-                            </TableCell>
-                            <TableCell>{member.userPrincipalName}</TableCell>
-                            <TableCell>{member.department || '-'}</TableCell>
-                            <TableCell>
-                              <Chip
-                                label={member.accountEnabled ? 'Active' : 'Disabled'}
-                                size="small"
-                                color={member.accountEnabled ? 'success' : 'error'}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {groupMembers.length > 5 && (
-                          <TableRow>
-                            <TableCell colSpan={4} sx={{ textAlign: 'center', fontStyle: 'italic' }}>
-                              ... and {groupMembers.length - 5} more members
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </>
+                      ))}
+                      {groupMembers.length > 5 && (
+                        <TableRow>
+                          <TableCell colSpan={4} sx={{ textAlign: 'center', fontStyle: 'italic' }}>
+                            ... and {groupMembers.length - 5} more members
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              ) : (
+                <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    This group has no members yet. Use the "Add Member" button to add users to this group.
+                  </Typography>
+                </Paper>
               )}
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setSelectedGroup(null)}>Close</Button>
-              <Button variant="contained" startIcon={<Edit />}>
+              <Button variant="contained" startIcon={<Edit />} onClick={handleEditGroup}>
                 Edit Group
               </Button>
             </DialogActions>
@@ -738,6 +929,179 @@ const GroupManagementLive: React.FC = () => {
       >
         <Add />
       </Fab>
+
+      {/* Add Member Dialog */}
+      <Dialog open={showAddMemberDialog} onClose={() => setShowAddMemberDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Add Members to {selectedGroup?.displayName}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Select users to add as members to this group. You can search for users by name or email.
+          </Typography>
+          
+          <Autocomplete
+            multiple
+            options={availableUsers}
+            loading={isLoadingUsers}
+            getOptionLabel={(option) => `${option.displayName} (${option.userPrincipalName})`}
+            value={selectedUsersForAdding}
+            onChange={(_, value) => setSelectedUsersForAdding(value)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Select Users to Add"
+                placeholder="Search for users..."
+                helperText="Start typing to search for users in your organization"
+              />
+            )}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <Chip
+                  {...getTagProps({ index })}
+                  key={option.id}
+                  label={option.displayName}
+                  color="primary"
+                />
+              ))
+            }
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setShowAddMemberDialog(false);
+            setSelectedUsersForAdding([]);
+          }}>Cancel</Button>
+          <Button variant="contained" onClick={() => {
+            handleAddMemberSubmit(selectedUsersForAdding);
+          }} disabled={selectedUsersForAdding.length === 0}>
+            Add Members
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Group Dialog */}
+      <Dialog open={showEditGroupDialog} onClose={() => setShowEditGroupDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit Group: {selectedGroup?.displayName}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              label="Group Name"
+              value={editGroupFormData.displayName}
+              onChange={(e) => setEditGroupFormData(prev => ({...prev, displayName: e.target.value}))}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              label="Description"
+              value={editGroupFormData.description}
+              onChange={(e) => setEditGroupFormData(prev => ({...prev, description: e.target.value}))}
+              sx={{ mb: 2 }}
+            />
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Visibility</InputLabel>
+              <Select
+                value={editGroupFormData.visibility}
+                onChange={(e) => setEditGroupFormData(prev => ({...prev, visibility: e.target.value}))}
+                label="Visibility"
+              >
+                <MenuItem value="Public">Public</MenuItem>
+                <MenuItem value="Private">Private</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowEditGroupDialog(false)}>Cancel</Button>
+          <Button variant="contained" onClick={() => {
+            handleEditGroupSubmit(editGroupFormData);
+          }} disabled={!editGroupFormData.displayName.trim()}>
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Group Settings Dialog */}
+      <Dialog open={showGroupSettingsDialog} onClose={() => setShowGroupSettingsDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Settings />
+            Settings: {selectedGroup?.displayName}
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="h6" sx={{ mb: 2 }}>Group Management Settings</Typography>
+          
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Security /> Security & Permissions
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Configure group access policies and security settings.
+                </Typography>
+                <Button variant="outlined" size="small" disabled>
+                  Configure Security
+                </Button>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Email /> Mail Settings
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Manage email distribution and notification preferences.
+                </Typography>
+                <Button variant="outlined" size="small" disabled>
+                  Configure Mail
+                </Button>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <People /> Membership Policies
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Control who can join the group and member approval settings.
+                </Typography>
+                <Button variant="outlined" size="small" disabled>
+                  Manage Membership
+                </Button>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Shield /> Access Policies
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Define conditional access and compliance policies.
+                </Typography>
+                <Button variant="outlined" size="small" disabled>
+                  Configure Access
+                </Button>
+              </Card>
+            </Grid>
+          </Grid>
+          
+          <Alert severity="info" sx={{ mt: 3 }}>
+            <Typography variant="body2">
+              These advanced settings require additional implementation and may need specific Graph API permissions. 
+              Contact your administrator for more information.
+            </Typography>
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowGroupSettingsDialog(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Refresh Success Snackbar */}
       <Snackbar
